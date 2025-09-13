@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MDuckPix - Accueil</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <link rel="stylesheet" href="/styles/style.min.css" />
+    <script defer src="/js/utils.js"></script>
+    <script defer src="/js/header.js"></script>
+    <script defer src="/js/app.js"></script>
+  </head>
+  <body>
+    <header class="header" data-shared-header>
+      <div class="container">
+        <div class="header-content">
+          <a href="/" class="logo-link">
+            <div class="logo">
+              <img src="/images/logo.png" alt="MDuck Logo" class="logo-img" />
+              <span class="logo-text">MDuckPix</span>
+            </div>
+          </a>
+          <div class="header-actions">
+            <div class="auth-buttons" id="authButtons">
+              <a href="/login" class="btn btn-primary" id="headerLoginLink"
+                >Connexion</a
+              >
+              <a
+                href="/register"
+                class="btn btn-secondary"
+                id="headerRegisterLink"
+                >Inscription</a
+              >
+            </div>
+            <div class="user-logged" id="userLogged" style="display: none">
+              <div class="user-info">
+                <div class="user-dropdown" id="userDropdown">
+                  <div class="user-trigger" id="userTrigger">
+                    <div class="profile-avatar">
+                      <div class="avatar-circle" id="headerAvatar"></div>
+                    </div>
+                    <span class="username" id="headerUsername"></span>
+                    <svg
+                      class="dropdown-arrow"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 4.5L6 7.5L9 4.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="user-menu" id="userMenu">
+                    <div class="menu-header">
+                      <div class="profile-avatar">
+                        <div class="avatar-circle" id="menuAvatar"></div>
+                      </div>
+                      <div class="profile-info">
+                        <span class="username" id="menuUsername"></span>
+                        <span class="role-badge" id="menuRole"></span>
+                      </div>
+                    </div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-items" id="menuItems"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button id="themeToggle" class="theme-toggle">🌙</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="container">
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-content">
+            <h2>📸 Déposez vos images ici</h2>
+            <p class="quota-info" id="explain"></p>
+            <input
+              type="file"
+              id="fileInput"
+              accept="image/png,image/webp,image/avif,image/jpeg"
+              multiple
+              style="display: none"
+            />
+            <button type="button" class="btn btn-primary" id="chooseBtn">
+              Choisir des fichiers
+            </button>
+            <p
+              class="upload-hint"
+              style="
+                margin-top: 0.5rem;
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                font-style: italic;
+              "
+            >
+              💡 Drag & drop, Ctrl+V ou cliquez pour uploader votre image
+            </p>
+          </div>
+        </div>
+        <div class="preview-container" id="previewContainer"></div>
+      </div>
+    </main>
+  </body>
+</html>

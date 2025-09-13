@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Administration — MDuckPix</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <link rel="stylesheet" href="/styles/style.min.css" />
+    <script defer src="/js/utils.js"></script>
+    <script defer src="/js/header.js"></script>
+    <script defer src="/js/admin.js"></script>
+  </head>
+  <body>
+    <header class="header" data-shared-header>
+      <div class="container">
+        <div class="header-content">
+          <a href="/" class="logo-link">
+            <div class="logo">
+              <img src="/images/logo.png" alt="MDuck Logo" class="logo-img" />
+              <span class="logo-text">MDuckPix</span>
+            </div>
+          </a>
+          <div class="header-actions">
+            <div class="auth-buttons" id="authButtons">
+              <a href="/login" class="btn btn-primary" id="headerLoginLink"
+                >Connexion</a
+              >
+              <a
+                href="/register"
+                class="btn btn-secondary"
+                id="headerRegisterLink"
+                >Inscription</a
+              >
+            </div>
+            <div class="user-logged" id="userLogged" style="display: none">
+              <div class="user-info">
+                <div class="user-dropdown" id="userDropdown">
+                  <div class="user-trigger" id="userTrigger">
+                    <div class="profile-avatar">
+                      <div class="avatar-circle" id="headerAvatar"></div>
+                    </div>
+                    <span class="username" id="headerUsername"></span>
+                    <svg
+                      class="dropdown-arrow"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 4.5L6 7.5L9 4.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="user-menu" id="userMenu">
+                    <div class="menu-header">
+                      <div class="profile-avatar">
+                        <div class="avatar-circle" id="menuAvatar"></div>
+                      </div>
+                      <div class="profile-info">
+                        <span class="username" id="menuUsername"></span>
+                        <span class="role-badge" id="menuRole"></span>
+                      </div>
+                    </div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-items" id="menuItems"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button id="themeToggle" class="theme-toggle">🌙</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="main admin-layout">
+      <div class="admin-sidebar" id="adminSidebar">
+        <div class="admin-brand">
+          <span class="logo-mini">🛠</span>
+          <span class="brand-text">Admin</span>
+        </div>
+        <nav class="admin-nav" id="adminNav">
+          <button class="admin-nav-item active" data-section="dashboard">
+            📊 <span>Dashboard</span>
+          </button>
+          <button class="admin-nav-item" data-section="users">
+            👤 <span>Utilisateurs</span>
+          </button>
+          <button class="admin-nav-item" data-section="roles">
+            ⚙️ <span>Rôles</span>
+          </button>
+          <button class="admin-nav-item" data-section="images">
+            🖼 <span>Images</span>
+          </button>
+          <button class="admin-nav-item" data-section="ip">
+            🚫 <span>IP Blocks</span>
+          </button>
+          <button class="admin-nav-item" data-section="logs">
+            📜 <span>Logs</span>
+          </button>
+          <button class="admin-nav-item" data-section="maintenance">
+            🧹 <span>Maintenance</span>
+          </button>
+        </nav>
+      </div>
+      <div class="admin-content" id="adminContent">
+        <!-- Dashboard -->
+        <section class="admin-section active" id="section-dashboard">
+          <h1 class="section-title">Tableau de bord</h1>
+          <div id="dashStats" class="dash-grid"></div>
+          <h2 class="sub-title">Images récentes</h2>
+          <div id="dashRecent" class="recent-grid"></div>
+          <h2 class="sub-title">IP Blocks (Top)</h2>
+          <table class="table small">
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="dashTopIps"></tbody>
+          </table>
+        </section>
+
+        <!-- Utilisateurs -->
+        <section class="admin-section" id="section-users">
+          <h1 class="section-title">Gestion utilisateurs</h1>
+          <div class="toolbar">
+            <input id="searchUser" placeholder="Rechercher email ou username" />
+            <button class="btn btn-secondary" id="searchBtn">Rechercher</button>
+          </div>
+          <table class="table responsive">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>État</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </section>
+
+        <!-- Images -->
+        <section class="admin-section" id="section-images">
+          <h1 class="section-title">Toutes les images</h1>
+          <div class="toolbar">
+            <input id="imgSearchId" placeholder="Filtrer par ID" />
+            <input id="imgSearchOwner" placeholder="Filtrer par owner_id" />
+            <input id="imgSearchUsername" placeholder="Filtrer par username" />
+            <button class="btn btn-secondary" id="imgSearchBtn">
+              Rechercher
+            </button>
+          </div>
+          <table class="table responsive">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Owner</th>
+                <th>Créée</th>
+                <th>URL</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="adminImagesBody"></tbody>
+          </table>
+        </section>
+
+        <!-- IP Blocks -->
+        <section class="admin-section" id="section-ip">
+          <h1 class="section-title">IP Blocks</h1>
+          <div class="toolbar ip-toolbar">
+            <input id="ipAddr" placeholder="Adresse IP" />
+            <input id="ipScore" placeholder="Score (0-1000)" />
+            <button class="btn btn-secondary" id="ipSetBtn">Appliquer</button>
+          </div>
+          <div class="ip-hint">
+            Scores élevés = activités suspectes. Ajuster pour bloquer ou
+            relâcher.
+          </div>
+          <table class="table responsive">
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>Score</th>
+                <th>Mis à jour</th>
+              </tr>
+            </thead>
+            <tbody id="ipBody"></tbody>
+          </table>
+        </section>
+
+        <!-- Logs -->
+        <section class="admin-section" id="section-logs">
+          <h1 class="section-title">Logs récents</h1>
+          <div class="toolbar">
+            <input id="logQ" placeholder="Filtre type/user_id" />
+            <button class="btn btn-secondary" id="logSearchBtn">
+              Rechercher
+            </button>
+          </div>
+          <table class="table responsive">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>Méta</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </section>
+
+        <!-- Maintenance -->
+        <section class="admin-section" id="section-maintenance">
+          <h1 class="section-title">Maintenance</h1>
+          <div class="maint-intro">
+            <p>
+              Outils pour garder la plateforme saine. Certaines opérations
+              peuvent prendre quelques secondes.
+            </p>
+          </div>
+          <div class="maint-grid">
+            <!-- Nettoyage -->
+            <div class="maint-card" id="card-cleanup">
+              <div class="maint-card-head">
+                <h3>Nettoyage</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">
+                Supprime les éléments expirés / orphelins (images
+                auto-supprimées, tokens, sessions, quotas expirés...).
+              </p>
+              <div class="maint-meta" id="cleanupMeta">
+                <span class="label">Dernier statut :</span>
+                <span class="value" id="cleanupStatusValue">—</span>
+              </div>
+              <div class="maint-actions">
+                <button
+                  class="btn btn-primary btn-sm btn-cleanup"
+                  id="cleanupBtn"
+                >
+                  Nettoyage
+                </button>
+                <div class="maint-progress" id="cleanupProgress" hidden>
+                  <div class="bar"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Purge sessions -->
+            <div class="maint-card" id="card-purge-sessions">
+              <div class="maint-card-head">
+                <h3>Purge sessions</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">
+                Supprime les sessions expirées et tokens API inactifs &gt;90j.
+              </p>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="purgeSessionsBtn">
+                  Purger
+                </button>
+              </div>
+            </div>
+            <!-- Purge logs -->
+            <div class="maint-card" id="card-purge-logs">
+              <div class="maint-card-head">
+                <h3>Purge logs</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">Efface les logs plus vieux que N jours.</p>
+              <div class="maint-actions">
+                <input
+                  id="purgeLogsDays"
+                  type="number"
+                  min="7"
+                  max="365"
+                  value="60"
+                  class="input-compact"
+                />
+                <button class="btn btn-primary btn-sm" id="purgeLogsBtn">
+                  Purger
+                </button>
+              </div>
+            </div>
+            <!-- Recalc stats -->
+            <div class="maint-card" id="card-recalc-stats">
+              <div class="maint-card-head">
+                <h3>Recalcul stats</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">
+                Reconstruit la table agrégée users_stats.
+              </p>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="recalcStatsBtn">
+                  Recalculer
+                </button>
+              </div>
+            </div>
+            <!-- Décroissance IP -->
+            <div class="maint-card" id="card-decay-ip">
+              <div class="maint-card-head">
+                <h3>Décroissance IP</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">Réduit tous les scores IP de 10.</p>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="decayIpBtn">
+                  Appliquer
+                </button>
+              </div>
+            </div>
+            <!-- Stats R2 -->
+            <div class="maint-card" id="card-r2-stats">
+              <div class="maint-card-head">
+                <h3>Stats R2</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">
+                Taille et nombre d'objets (images / avatars).
+              </p>
+              <div class="maint-meta" id="r2StatsMeta">
+                <span class="label">Images:</span>
+                <span class="value" id="r2ImagesMeta">—</span><br />
+                <span class="label">Avatars:</span>
+                <span class="value" id="r2AvatarsMeta">—</span>
+              </div>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="r2StatsBtn">
+                  Actualiser
+                </button>
+              </div>
+            </div>
+            <!-- Test mail -->
+            <div class="maint-card" id="card-test-mail">
+              <div class="maint-card-head">
+                <h3>Test mail</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">
+                Envoie un email de test (optionnel: destinataire spécifique).
+              </p>
+              <div class="maint-actions">
+                <input
+                  id="testMailTo"
+                  placeholder="email (optionnel)"
+                  class="input-compact"
+                />
+                <button class="btn btn-primary btn-sm" id="testMailBtn">
+                  Envoyer
+                </button>
+              </div>
+            </div>
+            <!-- Test webhook Discord -->
+            <div class="maint-card" id="card-discord-test">
+              <div class="maint-card-head">
+                <h3>Test Webhook Discord</h3>
+                <span class="maint-badge live">Actif</span>
+              </div>
+              <p class="maint-desc">Envoie un message fixe sur le webhook.</p>
+              <div class="maint-meta" id="discordTestMeta">
+                <span class="label">Statut :</span>
+                <span class="value" id="discordTestStatus">—</span>
+              </div>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="discordTestBtn">
+                  Envoyer test
+                </button>
+              </div>
+            </div>
+            <!-- Orphelins -->
+            <div class="maint-card" id="card-orphans">
+              <div class="maint-card-head">
+                <h3>Orphelins R2</h3>
+                <span class="maint-badge live">Scan</span>
+              </div>
+              <p class="maint-desc">
+                Liste objets sans enregistrement DB (batch).
+              </p>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="scanOrphansBtn">
+                  Scanner
+                </button>
+                <button
+                  class="btn btn-error btn-sm"
+                  id="deleteOrphansBtn"
+                  disabled
+                >
+                  Supprimer sélection
+                </button>
+              </div>
+              <div class="orphans-list" id="orphansList"></div>
+            </div>
+          </div>
+          <!-- /.maint-grid -->
+          <!-- Historique -->
+          <h2 class="sub-title" style="margin-top: 1.5rem">
+            Historique maintenance
+          </h2>
+          <div
+            class="toolbar"
+            style="margin-top: 0.25rem; margin-bottom: 0.5rem"
+          >
+            <button
+              class="btn btn-secondary btn-sm"
+              id="refreshMaintHistoryBtn"
+            >
+              Rafraîchir
+            </button>
+          </div>
+          <div class="maint-history" id="maintHistory">
+            <table class="table small responsive">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Statut</th>
+                  <th>Items</th>
+                  <th>Début</th>
+                  <th>Durée</th>
+                </tr>
+              </thead>
+              <tbody id="maintHistoryBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <!-- Rôles / Quotas -->
+        <section class="admin-section" id="section-roles">
+          <h1 class="section-title">Rôles &amp; quotas</h1>
+          <div
+            class="toolbar"
+            id="roleAddToolbar"
+            style="margin-bottom: 0.75rem; gap: 0.5rem; flex-wrap: wrap"
+          >
+            <input
+              class="input rp-input"
+              id="newRoleName"
+              placeholder="nouveau rôle (slug)"
+              style="width: 150px"
+            />
+            <input
+              class="input rp-input"
+              id="newRoleLabel"
+              placeholder="Label"
+              style="width: 160px"
+            />
+            <button class="btn btn-secondary" id="createRoleBtn">Créer</button>
+          </div>
+          <div class="muted" style="margin-bottom: 0.75rem">
+            Null/vides ou -1 = illimité (daily) / aucun cooldown / pas
+            d'auto-suppression.
+          </div>
+          <table class="table responsive small">
+            <thead>
+              <tr>
+                <th>Rôle</th>
+                <th>Label</th>
+                <th>Daily</th>
+                <th>Cooldown (s)</th>
+                <th>Auto delete (s)</th>
+                <th class="rp-actions-h"></th>
+              </tr>
+            </thead>
+            <tbody id="rolePoliciesBody"></tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+  </body>
+  <div id="lightbox" class="lightbox" style="display: none">
+    <div class="lightbox-backdrop" data-close></div>
+    <div class="lightbox-dialog">
+      <button class="lightbox-close" data-close>&times;</button>
+      <div class="lightbox-body">
+        <div class="lightbox-preview">
+          <img id="lightboxImg" alt="preview" />
+        </div>
+        <div class="lightbox-meta" id="lightboxMeta"></div>
+      </div>
+    </div>
+  </div>
+</html>

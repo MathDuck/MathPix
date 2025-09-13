@@ -1,0 +1,23 @@
+{
+  "name": "mduck-cdn",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "local:d1:database": "wrangler d1 execute DB --file=db/schema.sql --local",
+    "local:d1:migrate": "wrangler d1 migrations apply DB --local",
+    "deploy": "wrangler deploy",
+    "remote:d1:database": "wrangler d1 execute DB --file=db/schema.sql --remote",
+    "remote:d1:migrate": "wrangler d1 migrations apply DB --remote",
+    "remote:tail": "wrangler tail --format=pretty"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250909.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^4.36.0"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
+  }
+}

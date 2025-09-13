@@ -1,0 +1,55 @@
+# Exemple de configuration Wrangler (copier en wrangler.toml et adapter)
+name = "your-worker-name"
+main = "worker/index.ts"
+compatibility_date = "2024-06-20"
+
+assets = { directory = "public", binding = "__STATIC_CONTENT" }
+
+[vars]
+# URL publique de base (sans slash final)
+BASE_URL = "https://cdn.example.com"
+# Activation cron cleanup
+CLEANUP_ENABLED = "true"
+# Activer notifications Discord (mettez DISCORD_WEBHOOK_URL via secret si sensible)
+DISCORD_WEBHOOK_ENABLED = "true"
+DISCORD_WEBHOOK_URL = "${DISCORD_WEBHOOK_URL}" # -> définir en secret (voir plus bas)
+# API Email provider
+SENDINBLUE_API_URL = "https://api.brevo.com/v3/smtp/email"
+SENDINBLUE_API_KEY = "${SENDINBLUE_API_KEY}" # secret
+MAIL_SENDER = "no-reply@example.com"
+MAIL_SENDER_NAME = "Example CDN"
+
+# Optionnel: account_id (sinon lu depuis profil wrangler)
+# account_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "your-r2-bucket"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "your-d1-db"
+# database_id = "(rempli après création)"
+migrations_dir = "db/migrations"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[routes]]
+pattern = "cdn.example.com/*"
+zone_name = "example.com"
+
+[observability.logs]
+enabled = false
+
+# --- Sécrets à stocker avec wrangler secret put ---
+# DISCORD_WEBHOOK_URL
+# SENDINBLUE_API_KEY
+# COOKIE_SECRET
+# SESSION_SIGNING_KEY (si distinct)
+# API_TOKEN_PEPPER (si utilisé)
+
+# Pour les ajouter:
+# wrangler secret put DISCORD_WEBHOOK_URL
+# wrangler secret put SENDINBLUE_API_KEY
+# wrangler secret put COOKIE_SECRET

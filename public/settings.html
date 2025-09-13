@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paramètres - MDuckPix</title>
+    <script defer src="/js/utils.js"></script>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <link rel="stylesheet" href="/styles/style.min.css" />
+    <script defer src="/js/header.js"></script>
+    <script defer src="/js/settings.js"></script>
+  </head>
+  <body>
+    <header class="header" data-shared-header>
+      <div class="container">
+        <div class="header-content">
+          <a href="/" class="logo-link">
+            <div class="logo">
+              <img src="/images/logo.png" alt="MDuck Logo" class="logo-img" />
+              <span class="logo-text">MDuckPix</span>
+            </div>
+          </a>
+          <div class="header-actions">
+            <div class="auth-buttons" id="authButtons">
+              <a href="/login" class="btn btn-primary" id="headerLoginLink"
+                >Connexion</a
+              >
+              <a
+                href="/register"
+                class="btn btn-secondary"
+                id="headerRegisterLink"
+                >Inscription</a
+              >
+            </div>
+            <div class="user-logged" id="userLogged" style="display: none">
+              <div class="user-info">
+                <div class="user-dropdown" id="userDropdown">
+                  <div class="user-trigger" id="userTrigger">
+                    <div class="profile-avatar">
+                      <div class="avatar-circle" id="headerAvatar"></div>
+                    </div>
+                    <span class="username" id="headerUsername"></span>
+                    <svg
+                      class="dropdown-arrow"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 4.5L6 7.5L9 4.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="user-menu" id="userMenu">
+                    <div class="menu-header">
+                      <div class="profile-avatar">
+                        <div class="avatar-circle" id="menuAvatar"></div>
+                      </div>
+                      <div class="profile-info">
+                        <span class="username" id="menuUsername"></span>
+                        <span class="role-badge" id="menuRole"></span>
+                      </div>
+                    </div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-items" id="menuItems"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button id="themeToggle" class="theme-toggle">🌙</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="container">
+        <div class="settings-layout">
+          <!-- Navigation -->
+          <nav class="settings-nav">
+            <h2>⚙️ Paramètres</h2>
+            <ul class="nav-menu">
+              <li>
+                <a
+                  href="#profile-section"
+                  class="nav-link active"
+                  data-section="profile-section"
+                  >📷 Photo de profil</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#account-section"
+                  class="nav-link"
+                  data-section="account-section"
+                  >👤 Informations</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#stats-section"
+                  class="nav-link"
+                  data-section="stats-section"
+                  >📊 Statistiques</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#email-section"
+                  class="nav-link"
+                  data-section="email-section"
+                  >📧 Changer l'email</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#password-section"
+                  class="nav-link"
+                  data-section="password-section"
+                  >🔒 Mot de passe</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#api-section"
+                  class="nav-link"
+                  data-section="api-section"
+                  >🔑 Token API</a
+                >
+              </li>
+            </ul>
+          </nav>
+
+          <!-- Contenu -->
+          <div class="settings-content">
+            <!-- Section Photo de profil -->
+            <div id="profile-section" class="settings-section active">
+              <h3>📷 Photo de profil</h3>
+              <div class="profile-picture-section">
+                <div class="current-avatar">
+                  <div class="avatar-circle large">
+                    <img
+                      src=""
+                      alt="Profile"
+                      class="avatar-img"
+                      id="currentProfileImg"
+                    />
+                  </div>
+                </div>
+                <div class="profile-upload-zone" id="profileUploadZone">
+                  <div class="upload-content">
+                    <div class="upload-icon">
+                      <h2>📸 Déposez votre photo ici</h2>
+                    </div>
+                    <div class="upload-buttons">
+                      <button
+                        class="btn btn-primary btn-sm"
+                        id="chooseProfileBtn"
+                      >
+                        Choisir un fichier
+                      </button>
+                      <input
+                        type="file"
+                        id="profileFileInput"
+                        accept="image/*"
+                        hidden
+                      />
+                    </div>
+                    <p>
+                      💡 Drag & drop, Ctrl+V ou cliquez pour uploader votre
+                      image
+                    </p>
+                  </div>
+                </div>
+                <div class="profile-actions">
+                  <button class="btn btn-danger" id="removeProfileBtn">
+                    🗑️ Supprimer la photo
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section Informations -->
+            <div id="account-section" class="settings-section">
+              <h3>👤 Informations du compte</h3>
+              <div class="info-grid" id="accountInfo"></div>
+            </div>
+
+            <!-- Section Statistiques -->
+            <div id="stats-section" class="settings-section">
+              <h3>📊 Statistiques d'utilisation</h3>
+              <div class="stats-grid" id="statsGrid"></div>
+            </div>
+
+            <!-- Section Changer l'email -->
+            <div id="email-section" class="settings-section">
+              <h3>📧 Changer l'email</h3>
+              <form id="changeEmailForm" class="settings-form">
+                <div class="form-group">
+                  <label for="currentEmail">Email actuel</label>
+                  <input type="email" id="currentEmail" readonly />
+                </div>
+                <div class="form-group">
+                  <label for="newEmail">Nouvel email</label>
+                  <input type="email" id="newEmail" required />
+                </div>
+                <div class="form-group">
+                  <label for="passwordForEmail">Mot de passe</label>
+                  <input type="password" id="passwordForEmail" required />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  📧 Modifier
+                </button>
+              </form>
+            </div>
+
+            <!-- Section Changer mot de passe -->
+            <div id="password-section" class="settings-section">
+              <h3>🔒 Changer le mot de passe</h3>
+              <form id="changePasswordForm" class="settings-form">
+                <div class="form-group">
+                  <label for="currentPassword">Mot de passe actuel</label>
+                  <input type="password" id="currentPassword" required />
+                </div>
+                <div class="form-group">
+                  <label for="newPassword">Nouveau mot de passe</label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    required
+                    minlength="8"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="confirmNewPassword"
+                    >Confirmer le nouveau mot de passe</label
+                  >
+                  <input type="password" id="confirmNewPassword" required />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  🔒 Modifier
+                </button>
+              </form>
+            </div>
+
+            <!-- Section Token API -->
+            <div id="api-section" class="settings-section">
+              <h3>🔑 Token API</h3>
+              <div class="token-section">
+                <div class="token-display">
+                  <input
+                    type="text"
+                    id="apiToken"
+                    readonly
+                    class="token-input"
+                  />
+                  <div class="token-actions">
+                    <button class="btn btn-primary btn-sm" id="refreshTokenBtn">
+                      ♻️ Générer
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="copyTokenBtn">
+                      📋
+                    </button>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      id="downloadShareXBtn"
+                    >
+                      ⬇️ ShareX
+                    </button>
+                    <button
+                      class="btn btn-danger btn-sm"
+                      id="revokeTokenBtn"
+                      style="display: none"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="tokenMeta"
+                  class="token-meta"
+                  style="
+                    display: none;
+                    font-size: 0.7rem;
+                    color: var(--text-secondary);
+                    margin-top: 0.25rem;
+                  "
+                ></div>
+                <p class="token-info">
+                  💡 Utilisez ce token pour accéder à l'API.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

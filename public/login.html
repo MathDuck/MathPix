@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connexion - MDuckPix</title>
+    <!-- format.js non nécessaire ici, retiré -->
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <link rel="stylesheet" href="/styles/style.min.css" />
+    <script defer src="/js/utils.js"></script>
+    <script defer src="/js/header.js"></script>
+    <script defer src="/js/auth.js"></script>
+  </head>
+  <body>
+    <header class="header" data-shared-header>
+      <div class="container">
+        <div class="header-content">
+          <a href="/" class="logo-link">
+            <div class="logo">
+              <img src="/images/logo.png" alt="MDuck Logo" class="logo-img" />
+              <span class="logo-text">MDuckPix</span>
+            </div>
+          </a>
+          <div class="header-actions">
+            <div class="auth-buttons" id="authButtons">
+              <a href="/login" class="btn btn-primary" id="headerLoginLink"
+                >Connexion</a
+              >
+              <a
+                href="/register"
+                class="btn btn-secondary"
+                id="headerRegisterLink"
+                >Inscription</a
+              >
+            </div>
+            <div class="user-logged" id="userLogged" style="display: none">
+              <div class="user-info">
+                <div class="user-dropdown" id="userDropdown">
+                  <div class="user-trigger" id="userTrigger">
+                    <div class="profile-avatar">
+                      <div class="avatar-circle" id="headerAvatar"></div>
+                    </div>
+                    <span class="username" id="headerUsername"></span>
+                    <svg
+                      class="dropdown-arrow"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 4.5L6 7.5L9 4.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="user-menu" id="userMenu">
+                    <div class="menu-header">
+                      <div class="profile-avatar">
+                        <div class="avatar-circle" id="menuAvatar"></div>
+                      </div>
+                      <div class="profile-info">
+                        <span class="username" id="menuUsername"></span>
+                        <span class="role-badge" id="menuRole"></span>
+                      </div>
+                    </div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-items" id="menuItems"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button id="themeToggle" class="theme-toggle">🌙</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="container">
+        <div class="auth-container">
+          <div class="auth-card">
+            <h2>🔐 Connexion</h2>
+            <form id="loginForm" class="auth-form">
+              <div class="form-group">
+                <label for="username">Nom d'utilisateur ou Email</label>
+                <input type="text" id="username" name="username" required />
+              </div>
+
+              <div class="form-group" style="position: relative">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" name="password" required />
+                <button
+                  type="button"
+                  id="resetBtn"
+                  class="forgot-link"
+                  aria-expanded="false"
+                  aria-controls="resetSection"
+                  style="
+                    position: absolute;
+                    right: 0;
+                    bottom: -1.1rem;
+                    font-size: 0.7rem;
+                    margin: 0;
+                  "
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
+
+              <div id="msg" class="form-message"></div>
+              <button
+                id="loginSubmit"
+                type="submit"
+                class="btn btn-primary btn-full"
+              >
+                Se connecter
+              </button>
+
+              <div class="auth-links" style="margin-top: 1.75rem">
+                <p style="margin: 0">
+                  Pas de compte ? <a href="/register">S'inscrire</a>
+                </p>
+              </div>
+              <div
+                id="resetSection"
+                class="reset-section"
+                style="display: none; margin-top: 1rem"
+              >
+                <h3
+                  style="
+                    margin: 0 0 0.75rem 0;
+                    font-size: 0.9rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    color: var(--accent-color);
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M2 12h20" />
+                    <path d="M12 2v20" />
+                  </svg>
+                  Réinitialiser le mot de passe
+                </h3>
+                <div class="form-group" style="margin-bottom: 0.75rem">
+                  <label for="resetEmail">Email du compte</label>
+                  <input
+                    type="email"
+                    id="resetEmail"
+                    autocomplete="email"
+                    placeholder="ex: user@mail.com"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem">
+                  <button
+                    type="button"
+                    id="resetSubmitBtn"
+                    class="btn btn-primary btn-full"
+                    style="font-size: 0.95rem"
+                  >
+                    Envoyer le lien de réinitialisation
+                  </button>
+                </div>
+                <div id="resetMsg" class="form-message small"></div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
