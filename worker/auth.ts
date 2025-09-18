@@ -148,7 +148,7 @@ export async function handleLogin(req: Request, env: Env) {
         if (idKey) await clearThrottle(env, idKey);
         const sess = await createSession(env, { id: user.id as string });
         const cookie = await sessionCookie(env, sess.id);
-        await logDiscord(env, "User login", { identifier, id: user.id, role: user.role, ip, ua: userAgent, requestId });
+        await logDiscord(env, "User login", { identifier, id: user.id, username: user.username, role: user.role, ip, ua: userAgent, requestId });
         await createAudit(env, { type: "login_success", user_id: user.id, ip, meta: auditMeta({ ua: userAgent }) });
         return new Response(JSON.stringify({ ok: true }), {
             status: 200,
@@ -163,13 +163,13 @@ export async function handleLogout(req: Request, env: Env) {
     const session = await getSession(env, req);
     if (session) {
         await destroySession(env, session.id);
-        let role: string | undefined;
+        let role: string | undefined; let username: string | undefined;
         if (session.user_id) {
-            const roleRow = await env.DB.prepare("SELECT role FROM users WHERE id=?").bind(session.user_id).first<{ role: string }>();
-            role = roleRow?.role;
+            const row = await env.DB.prepare("SELECT role, username FROM users WHERE id=?").bind(session.user_id).first<{ role: string; username: string | null }>();
+            role = row?.role; username = row?.username || undefined;
         }
         const requestId = randomId(12);
-        await logDiscord(env, "User logout", { user_id: session.user_id, role, requestId });
+        await logDiscord(env, "User logout", { user_id: session.user_id, username, role, requestId });
         await createAudit(env, { type: "logout", user_id: session.user_id, ip: getClientIp(req), meta: JSON.stringify({ request_id: requestId }) });
     }
     return new Response(null, {
@@ -198,7 +198,7 @@ export async function handlePasswordResetRequest(req: Request, env: Env) {
             });
             await createAudit(env, { type: "email_sent", user_id: user.id, ip: getClientIp(req), meta: auditMeta({ kind: 'password_reset', status: mailRes.status, ok: mailRes.ok }) });
         }
-        await logDiscord(env, "Password reset requested", { user_id: user.id, email, requestId });
+        await logDiscord(env, "Password reset requested", { user_id: user.id, username: user.username, email, requestId });
         await createAudit(env, { type: "password_reset_requested", user_id: user.id, ip: getClientIp(req), meta: auditMeta({ email }) });
     }
     return jsonResponse({ ok: true });
@@ -219,7 +219,12 @@ export async function handlePasswordResetConfirm(req: Request, env: Env) {
     const password_hash = await hash(password);
     await env.DB.prepare("UPDATE users SET password_hash=? WHERE id=?").bind(password_hash, rec.user_id).run();
     await env.DB.prepare("UPDATE password_resets SET used=1 WHERE token=?").bind(token).run();
-    await logDiscord(env, "Password reset success", { user_id: rec.user_id, requestId });
+    let uname: string | undefined;
+    try {
+        const urow = await env.DB.prepare("SELECT username FROM users WHERE id=?").bind(rec.user_id).first<{ username: string | null }>();
+        uname = urow?.username || undefined;
+    } catch { }
+    await logDiscord(env, "Password reset success", { user_id: rec.user_id, username: uname, requestId });
     await createAudit(env, { type: "password_reset_success", user_id: rec.user_id, ip: getClientIp(req), meta: auditMeta() });
     return jsonResponse({ ok: true });
 }

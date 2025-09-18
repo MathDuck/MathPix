@@ -2552,3 +2552,59 @@ tbody#adminImagesBody .btn-group-compact {
   letter-spacing: 0.5px;
   vertical-align: middle;
 }
+
+/* Inputs avec bouton œil (pages auth) */
+.input-with-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-with-toggle input {
+  width: 100%;
+  padding-right: 2.25rem; /* espace pour l'icône */
+}
+.pw-toggle {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+.pw-toggle:hover {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+/* Icône œil en pur CSS */
+.pw-toggle::before,
+.pw-toggle::after {
+  content: "";
+  position: absolute;
+}
+.pw-toggle::before {
+  /* œil */
+  width: 16px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 10px / 6px;
+}
+.pw-toggle::after {
+  /* pupille */
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.pw-toggle[aria-pressed="true"]::after {
+  /* quand visible, réduire pupille pour effet */
+  width: 4px;
+  height: 4px;
+}
