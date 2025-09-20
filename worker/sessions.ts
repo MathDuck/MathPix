@@ -14,9 +14,10 @@ function sign(value: string, secret: string) {
     });
 }
 
-export async function createSession(env: Env, user: { id?: string }) {
+export async function createSession(env: Env, user: { id?: string }, opts?: { hours?: number }) {
     const id = randomId(32);
-    const ttlMs = SESSION_TTL_HOURS * 60 * 60 * 1000;
+    const hours = (opts?.hours && opts.hours > 0) ? opts.hours : SESSION_TTL_HOURS;
+    const ttlMs = hours * 60 * 60 * 1000;
     const exp = Date.now() + ttlMs;
     await env.DB.prepare(
         "INSERT INTO sessions (id,user_id,expires_at,created_at) VALUES (?,?,?,strftime('%s','now'))"
@@ -49,17 +50,18 @@ export async function destroySession(env: Env, sid: string) {
     await env.DB.prepare("DELETE FROM sessions WHERE id=?").bind(sid).run();
 }
 
-export async function sessionCookie(env: Env, sid: string) {
+export async function sessionCookie(env: Env, sid: string, opts?: { hours?: number }) {
     const sig = await sign(sid, env.COOKIE_SECRET);
     const cookieVal = encodeURIComponent(`${sid}.${sig}`);
     const isHttps = (env.BASE_URL || '').startsWith('https://');
+    const hours = (opts?.hours && opts.hours > 0) ? opts.hours : SESSION_TTL_HOURS;
     const attrsArr = [
         `sessionId=${cookieVal}`,
         "Path=/",
         "HttpOnly",
         isHttps ? "Secure" : null,
         "SameSite=Lax",
-        `Max-Age=${SESSION_TTL_HOURS * 60 * 60}`
+        `Max-Age=${hours * 60 * 60}`
     ].filter(Boolean) as string[];
     const attrs = attrsArr.join("; ");
     return attrs;

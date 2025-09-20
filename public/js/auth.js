@@ -38,11 +38,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             ev.preventDefault();
             const identifier = document.getElementById("username").value.trim();
             const password = document.getElementById("password").value;
+            const remember = !!document.getElementById("remember")?.checked;
             const msg = document.getElementById("msg");
             const loginResponse = await fetch("/api/login", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ identifier, password })
+                body: JSON.stringify({ identifier, password, remember })
             });
             const loginData = await loginResponse.json();
             if (loginResponse.ok) {

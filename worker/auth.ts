@@ -120,6 +120,7 @@ export async function handleLogin(req: Request, env: Env) {
         const body: any = await req.json().catch(() => ({}));
         const identifier: string = body.email || body.username || body.identifier || "";
         const password: string = body.password || "";
+        const remember: boolean = !!body.remember;
         const now = Math.floor(Date.now() / 1000);
 
         const ipKey = `ip:${ip}`;
@@ -146,8 +147,10 @@ export async function handleLogin(req: Request, env: Env) {
         }
         await clearThrottle(env, ipKey);
         if (idKey) await clearThrottle(env, idKey);
-        const sess = await createSession(env, { id: user.id as string });
-        const cookie = await sessionCookie(env, sess.id);
+        // Durée de session: par défaut SESSION_TTL_HOURS, sinon remember -> 30 jours.
+        const rememberHours = 24 * 30; // 30 jours
+        const sess = await createSession(env, { id: user.id as string }, remember ? { hours: rememberHours } : undefined);
+        const cookie = await sessionCookie(env, sess.id, remember ? { hours: rememberHours } : undefined);
         await logDiscord(env, "User login", { identifier, id: user.id, username: user.username, role: user.role, ip, ua: userAgent, requestId });
         await createAudit(env, { type: "login_success", user_id: user.id, ip, meta: auditMeta({ ua: userAgent }) });
         return new Response(JSON.stringify({ ok: true }), {
