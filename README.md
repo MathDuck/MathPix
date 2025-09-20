@@ -135,6 +135,18 @@ POST `/api/upload` :
 - Aucun accès anonyme aux endpoints admin (vérification rôle admin).
 - Pas de suppression image via token public (rollback réalisé).
 
+### Sessions & "Rester connecté(e)"
+- TTL par défaut d'une session : **72h** (variable `SESSION_TTL_HOURS`).
+- Option *Rester connecté(e)* (checkbox sur /login) : session prolongée à **30 jours** (cookie `Max-Age` ≈ 2 592 000 s) stockée aussi en base avec expiration avancée.
+- Implémentation : le client envoie `remember: true` dans POST `/api/login`; le backend ajuste TTL (création + cookie).
+- Changement futur possible : rendre la durée configurable via variable d'environnement (ex: `REMEMBER_TTL_DAYS`).
+
+Recommandations :
+- Désactiver l'option sur postes publics / partagés.
+- Forcer un logout côté admin (suppression de la session) en cas de suspicion de compromission.
+- Prévoir à terme un *sliding expiration* (renouveler la date d'expiration à l'activité) si sessions longues critiques.
+- En cas de fuite de cookie, rotation forcée possible en changeant `COOKIE_SECRET` (invalide toutes les sessions existantes).
+
 ## Tâches planifiées & Maintenance
 Cron (hourly) : `runCleanup` (sessions expirées, auto-delete images, captchas expirés, IP decay si implémenté). 
 Maintenance manuelle : endpoints admin dédiés.
