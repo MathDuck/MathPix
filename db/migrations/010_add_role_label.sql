@@ -1,5 +1,6 @@
--- Migration: add label column to role_policies
-ALTER TABLE role_policies ADD COLUMN label TEXT;
+-- Colonne label déjà dans schema.sql -> neutralisée.
+-- Pour ancienne base sans la colonne, dé-commentez:
+-- ALTER TABLE role_policies ADD COLUMN label TEXT;
 
 -- Backfill des labels initiaux pour les rôles existants (exécuté une seule fois)
 UPDATE role_policies

@@ -2,8 +2,9 @@
 -- Sécurité: accessible uniquement via endpoints authentifiés de l'utilisateur.
 -- Idempotent: ignore l'erreur si la colonne existe déjà.
 
--- 1. Ajouter colonne token_plain si absente
-ALTER TABLE api_tokens ADD COLUMN token_plain TEXT;
+-- Colonne token_plain déjà dans schema.sql -> neutralisée.
+-- Pour ancienne base sans la colonne, dé-commentez:
+-- ALTER TABLE api_tokens ADD COLUMN token_plain TEXT;
 
 -- 2. (Optionnel) Aucune rétro-population possible car les tokens sont hashés.
 -- Les nouveaux tokens créés après cette migration auront token_plain rempli.

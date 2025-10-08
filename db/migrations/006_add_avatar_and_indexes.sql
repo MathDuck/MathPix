@@ -1,8 +1,9 @@
 -- Migration 006: add last_avatar_change_at column + performance indexes + backfill
 -- Run once. If the column already exists you can ignore the first error.
 
--- 1. Add column (nullable)
-ALTER TABLE users ADD COLUMN last_avatar_change_at INTEGER;
+-- Colonne déjà présente dans schema.sql actuel -> neutralisée.
+-- Pour ancienne base sans la colonne, dé-commentez:
+-- ALTER TABLE users ADD COLUMN last_avatar_change_at INTEGER;
 
 -- 2. Indexes (idempotent)
 CREATE INDEX IF NOT EXISTS idx_users_last_avatar ON users(last_avatar_change_at);

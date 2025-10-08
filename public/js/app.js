@@ -136,12 +136,32 @@ document.addEventListener("DOMContentLoaded", async () => {
                 input.readOnly = true;
                 input.onclick = () => input.select();
                 input.classList.add('upload-url-input');
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-primary upload-copy-btn';
-                btn.textContent = '📋 Copier';
-                btn.addEventListener('click', () => { window.copyToClipboard(displayUrl); btn.textContent = '✅'; setTimeout(() => btn.textContent = '📋 Copier', 1200); });
+                const actions = document.createElement('div');
+                actions.style.display = 'flex';
+                actions.style.gap = '0.4rem';
+                actions.style.flexShrink = '0';
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn btn-primary upload-copy-btn';
+                copyBtn.textContent = '📋 Copier';
+                copyBtn.addEventListener('click', () => { window.copyToClipboard(displayUrl); copyBtn.textContent = '✅ Copier'; setTimeout(() => copyBtn.textContent = '📋 Copier', 1200); });
+
+                const openBtn = document.createElement('button');
+                openBtn.type = 'button';
+                openBtn.className = 'btn btn-primary upload-open-btn';
+                openBtn.title = 'Ouvrir dans un nouvel onglet';
+                openBtn.setAttribute('aria-label', 'Ouvrir l\'image dans un nouvel onglet');
+                openBtn.innerHTML = '👁️\u00A0Ouvrir';
+                openBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    try { window.open(displayUrl, '_blank', 'noopener,noreferrer'); } catch (_) { location.href = displayUrl; }
+                });
+
+                actions.appendChild(openBtn);
+                actions.appendChild(copyBtn);
+
                 result.appendChild(input);
-                result.appendChild(btn);
+                result.appendChild(actions);
             },
             setError(message) {
                 overlay.innerHTML = '<div style="color:#f87171; font-size:0.8rem; text-align:center; padding:0.5rem;">' + (message || 'Erreur') + '</div>';

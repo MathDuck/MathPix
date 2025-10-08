@@ -27,7 +27,6 @@ async function serveAsset(request: Request): Promise<Response | null> {
 
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-        // Special-case: map /reset to /reset.html while preserving query
         const url = new URL(request.url);
         if (url.pathname === '/reset') {
             const mapped = new URL(request.url);

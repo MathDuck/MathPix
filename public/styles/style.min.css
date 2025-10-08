@@ -1243,7 +1243,7 @@ button.forgot-link:focus-visible {
   align-items: center;
   padding: 1rem;
   gap: 1rem;
-  max-width: 600px;
+  max-width: 760px; /* élargi pour laisser apparaître l'URL complète */
   width: 100%;
   margin: 0 auto;
   position: relative;
@@ -1340,6 +1340,14 @@ button.forgot-link:focus-visible {
   outline: 0;
 }
 .upload-copy-btn {
+  padding: 0.65rem 1rem;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.upload-open-btn {
   padding: 0.65rem 1rem;
   font-size: 0.8rem;
   display: inline-flex;
