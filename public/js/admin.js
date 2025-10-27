@@ -643,7 +643,7 @@ async function loadDbBackups() {
         const size = typeof b.size === 'number' ? formatBytes(b.size) : '';
         const date = b.uploaded ? new Date(b.uploaded * 1000).toLocaleString() : '';
         const dl = `/api/admin/maint/backup/download?key=${encodeURIComponent(b.key)}`;
-        tr.innerHTML = `<td><span class='code'>${escapeHtml(name || b.key)}</span></td><td>${size}</td><td>${date}</td><td><a href='${dl}' class='btn btn-secondary btn-xs'>Télécharger</a></td>`;
+        tr.innerHTML = `<td><span class='code'>${escapeHtml(name || b.key)}</span></td><td>${size}</td><td>${date}</td><td style="text-align:left"><a href='${dl}' class='btn btn-secondary btn-xs'>Télécharger</a></td>`;
         frag.appendChild(tr);
     });
     body.innerHTML = '';
