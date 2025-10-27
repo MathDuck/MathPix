@@ -42,19 +42,9 @@ export async function createImage(env: Env, o: {
     id: string; owner_id?: string; key: string; ext: string; content_type: string;
     size: number; ip: string; auto_delete_at?: number; original_name?: string | null;
 }) {
-    try {
-        return await env.DB.prepare(
-            "INSERT INTO images (id,owner_id,key,ext,content_type,original_name,size,created_at,ip,auto_delete_at) VALUES (?,?,?,?,?,?,?,strftime('%s','now'),?,?)"
-        ).bind(o.id, o.owner_id ?? null, o.key, o.ext, o.content_type, o.original_name ?? null, o.size, o.ip, o.auto_delete_at ?? null).run();
-    } catch (e: any) {
-        // Fallback si migration original_name non appliquée (colonne inexistante)
-        if (String(e).includes('original_name')) {
-            return env.DB.prepare(
-                "INSERT INTO images (id,owner_id,key,ext,content_type,size,created_at,ip,auto_delete_at) VALUES (?,?,?,?,?,?,strftime('%s','now'),?,?)"
-            ).bind(o.id, o.owner_id ?? null, o.key, o.ext, o.content_type, o.size, o.ip, o.auto_delete_at ?? null).run();
-        }
-        throw e;
-    }
+    return await env.DB.prepare(
+        "INSERT INTO images (id,owner_id,key,ext,content_type,original_name,size,created_at,ip,auto_delete_at) VALUES (?,?,?,?,?,?,?,strftime('%s','now'),?,?)"
+    ).bind(o.id, o.owner_id ?? null, o.key, o.ext, o.content_type, o.original_name ?? null, o.size, o.ip, o.auto_delete_at ?? null).run();
 }
 
 // --- users_stats helpers ---
@@ -153,9 +143,14 @@ export async function createAudit(env: Env, o: {
 }
 
 export async function scheduleForDeletion(env: Env, nowSec: number) {
-    return env.DB.prepare(
-        "SELECT id,key FROM images WHERE auto_delete_at IS NOT NULL AND auto_delete_at <= ? LIMIT 500"
-    ).bind(nowSec).all();
+    const FIFTEEN_DAYS = 15 * 24 * 60 * 60;
+    const cutoff = nowSec - FIFTEEN_DAYS;
+    return await env.DB.prepare(
+        `SELECT id,key FROM images
+             WHERE (auto_delete_at IS NOT NULL AND auto_delete_at <= ?)
+                OR (owner_id IS NULL AND COALESCE(last_access_at, created_at) <= ?)
+             LIMIT 500`
+    ).bind(nowSec, cutoff).all();
 }
 
 // --- Role policies ---

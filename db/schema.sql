@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS images (
   size INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   ip TEXT NOT NULL,
+  last_access_at INTEGER, -- mis à jour à chaque lecture /i/:id.ext
   auto_delete_at INTEGER,
   FOREIGN KEY (owner_id) REFERENCES users(id)
 );
@@ -41,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_images_owner_created ON images(owner_id, created_
 CREATE INDEX IF NOT EXISTS idx_images_created ON images(created_at);
 CREATE INDEX IF NOT EXISTS idx_images_ip ON images(ip);
 CREATE INDEX IF NOT EXISTS idx_images_autodel ON images(auto_delete_at);
+CREATE INDEX IF NOT EXISTS idx_images_last_access ON images(last_access_at);
 
 -- IP blocks
 CREATE TABLE IF NOT EXISTS ip_blocks (
@@ -141,7 +143,7 @@ CREATE TABLE IF NOT EXISTS role_policies (
 
 -- Seed initial (ignore si déjà présent)
 INSERT OR IGNORE INTO role_policies(role,label,daily,cooldown_sec,auto_delete_sec,updated_at) VALUES
-  ('anon','Invité',10,60,604800,strftime('%s','now')),
+  ('anon','Invité',10,60,NULL,strftime('%s','now')),
   ('user','Utilisateur',100,20,31536000,strftime('%s','now')),
   ('vip','VIP',NULL,NULL,NULL,strftime('%s','now')),
   ('admin','Administrateur',NULL,NULL,NULL,strftime('%s','now'));

@@ -1,4 +1,5 @@
 import { Env } from "./env.d";
+import { listBackups, performDbBackup } from "./backup";
 import { getClientIp, getExtFromType, randomId, requireAdminGlobal, apiError, ErrorCode, checkAvatarCooldown, checkQuota, parseIncomingImage, putImage, getImage, deleteImageR2, isIpBlocked, createCaptcha, bumpIpScore, runCleanup, validateEmail, validatePassword, roleQuotasDynamic, AVATAR_COOLDOWN_SEC, PBKDF2_ITERATIONS, responseHelpers, clearRolePolicyCache } from "./utils";
 import { translate } from "./i18n";
 import { optimizeLossless } from "./image_opt";
@@ -180,7 +181,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             const quotaValues = quotas.ok ? quotas.q : null;
             const autoDeleteSec = quotaValues?.autoDeleteSec ?? null;
             const auto_delete_at = autoDeleteSec ? Math.floor(Date.now() / 1000) + autoDeleteSec : null;
-            // Sanitize original filename
             let originalName: string | undefined = filename || undefined;
             if (originalName) {
                 originalName = originalName.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 180);
@@ -209,6 +209,12 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const headers = new Headers();
         headers.set("content-type", (img as any).content_type as string);
         headers.set("cache-control", "public, max-age=31536000, immutable");
+        try {
+            const noTrack = (new URL(req.url)).searchParams.get('no_track') === '1';
+            if (!noTrack) {
+                (ctx as any)?.waitUntil?.(env.DB.prepare("UPDATE images SET last_access_at=strftime('%s','now') WHERE id=?").bind(imageId).run());
+            }
+        } catch { }
         return new Response(obj.body, { status: 200, headers });
     }
 
@@ -306,12 +312,11 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const label: string | null = body.label && typeof body.label === 'string' ? body.label.trim().slice(0, 40) : null;
         if (!role || /[^a-z0-9_\-]/i.test(role) || role.length > 32) return apiError(ErrorCode.INVALID_DATA, 400, translate('invalid.form'));
         if (['anon', 'admin'].includes(role)) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
-        // -1 accepté côté UI pour exprimer "illimité / désactivé" => stocké NULL
         function norm(val: any) {
             if (val === null || val === undefined || val === '') return null;
             const n = Number(val);
             if (!Number.isFinite(n)) return null;
-            if (n === -1) return null; // mapping -1 -> NULL illimité
+            if (n === -1) return null;
             return n >= 0 ? n : null;
         }
         const daily = norm(body.daily);
@@ -344,7 +349,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         if (!role) return apiError(ErrorCode.INVALID_DATA, 400, translate('invalid.form'));
         if (['anon', 'admin', 'user'].includes(role)) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
         try {
-            // Reassign users having this role to 'user'
             await env.DB.prepare('UPDATE users SET role="user" WHERE role=?').bind(role).run();
             await env.DB.prepare('DELETE FROM role_policies WHERE role=?').bind(role).run();
             clearRolePolicyCache(role);
@@ -375,14 +379,15 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             users_total: number; users_disabled: number; images_total: number; images_24h: number; images_1h: number; bytes_total: number; audit_24h: number; ip_block_count: number;
         }>();
         const topIpsPromise = env.DB.prepare("SELECT ip, score FROM ip_blocks ORDER BY score DESC LIMIT 5").all<{ ip: string; score: number }>();
-        const recentImagesPromise = env.DB.prepare(`
-            SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.original_name, u.username as owner_username
-            FROM images i
-            LEFT JOIN users u ON u.id = i.owner_id
-            ORDER BY i.created_at DESC
-            LIMIT 10
-        `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; owner_username: string | null }>();
-        const [agg, topIps, recentImages] = await Promise.all([aggPromise, topIpsPromise, recentImagesPromise]);
+        const [agg, topIps] = await Promise.all([aggPromise, topIpsPromise]);
+        const recentImages = await env.DB.prepare(`
+                SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.last_access_at, i.original_name, u.username as owner_username
+                FROM images i
+                LEFT JOIN users u ON u.id = i.owner_id
+                ORDER BY i.created_at DESC
+                LIMIT 10
+            `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; original_name: string | null; owner_username: string | null }>();
+
         const usersTotal = agg?.users_total || 0;
         const usersDisabled = agg?.users_disabled || 0;
         const imagesTotal = agg?.images_total || 0;
@@ -391,13 +396,11 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const bytesTotal = agg?.bytes_total || 0;
         const audit24h = agg?.audit_24h || 0;
         const ipBlockCount = agg?.ip_block_count || 0;
-        // Enrich recent images with via_api flag (read from latest upload audit meta JSON)
-        const recentList = recentImages.results || [];
+        const recentList = (recentImages.results || []) as Array<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; original_name: string | null; owner_username: string | null }>;
         let viaMap: Record<string, boolean> = {};
         if (recentList.length) {
             const idsCond = recentList.map(r => r.id).filter(Boolean);
             try {
-                // Fetch last upload log per image id (max 10) – simple LIKE search
                 for (const rid of idsCond) {
                     const pattern = `%"id":"${rid}"%`;
                     const row = await env.DB.prepare("SELECT meta FROM audit_logs WHERE type='upload' AND meta LIKE ? ORDER BY id DESC LIMIT 1").bind(pattern).first<{ meta: string }>();
@@ -412,11 +415,10 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             images: { total: imagesTotal, last24h: images24h, last1h: images1h, bytes_total: bytesTotal },
             audit: { last24h: audit24h },
             ip_blocks: { total: ipBlockCount, top: topIps.results || [] },
-            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, created_at: r.created_at, original_name: (r as any).original_name || null, via_api: viaMap[r.id] || false })),
+            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, created_at: r.created_at, last_access_at: (r as any).last_access_at ?? null, original_name: (r as any).original_name || null, via_api: viaMap[r.id] || false })),
             generated_at: now
         };
         const body = JSON.stringify(payloadObj);
-        // ETag hashing (sha-1)
         let etag = 'W/"unknown"';
         try {
             const hashBuf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(body));
@@ -426,14 +428,12 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         if (ifNoneMatch && etag === ifNoneMatch) {
             return new Response(null, { status: 304, headers: { 'etag': etag, 'cache-control': 'no-cache', 'vary': 'accept-encoding, if-none-match' } });
         }
-        // Compression manuelle désactivée (problèmes d'affichage côté admin). Laisser le CDN gérer.
         return new Response(body, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'etag': etag, 'cache-control': 'no-cache', 'vary': 'if-none-match' } });
     }
 
     // Scheduled tasks (static list for admin visibility)
     if (req.method === 'GET' && path === '/api/admin/scheduled') {
         const s = await requireAdminGlobal(env, req); if (!s) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
-        // Example static tasks; could be moved to KV / durable object config later
         const tasks = [
             { name: 'cleanup', cron: '0 * * * *', desc: 'Nettoyage périodique (sessions / tokens / auto delete images)', intervalMin: 60 },
             { name: 'decay_ip_scores', cron: '*/15 * * * *', desc: 'Décroissance scores IP', intervalMin: 15 },
@@ -478,15 +478,15 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const page = Math.max(parseInt(u.searchParams.get("page") || "1", 10) || 1, 1);
         const offset = (page - 1) * limit;
         const rows = await env.DB.prepare(
-            `SELECT i.id, i.owner_id, u.username as owner_username, i.ext, i.content_type, i.size, i.created_at, i.auto_delete_at, i.original_name
-             FROM images i
-             LEFT JOIN users u ON u.id = i.owner_id
-             WHERE 1=1
-               AND (? IS NULL OR i.owner_id = ?)
-               AND (? IS NULL OR i.id LIKE ?)
-               AND (? IS NULL OR (u.username IS NOT NULL AND u.username LIKE ?))
-             ORDER BY i.created_at DESC
-             LIMIT ? OFFSET ?`
+            `SELECT i.id, i.owner_id, u.username as owner_username, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.auto_delete_at, i.original_name
+                         FROM images i
+                         LEFT JOIN users u ON u.id = i.owner_id
+                         WHERE 1=1
+                             AND (? IS NULL OR i.owner_id = ?)
+                             AND (? IS NULL OR i.id LIKE ?)
+                             AND (? IS NULL OR (u.username IS NOT NULL AND u.username LIKE ?))
+                         ORDER BY i.created_at DESC
+                         LIMIT ? OFFSET ?`
         ).bind(
             owner ?? null, owner ?? null,
             idLike ? `%${idLike}%` : null, idLike ? `%${idLike}%` : null,
@@ -504,7 +504,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             ownerUsername ? `%${ownerUsername}%` : null, ownerUsername ? `%${ownerUsername}%` : null
         ).first<{ c: number }>())?.c || 0;
         const list = rows.results || [];
-        // via_api enrichment (batch single queries per image, list limited by pagination)
         const viaMap: Record<string, boolean> = {};
         for (const r of list) {
             try {
@@ -589,13 +588,10 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
 
     // Advanced maintenance
     async function requireAdmin() { return await requireAdminGlobal(env, req); }
-    // requireAdminGlobal maintenant importé depuis utils.ts
     async function recordRun(task: string, fn: () => Promise<{ items?: number; meta?: any } | void>) {
         const started = Math.floor(Date.now() / 1000);
         const ins = await env.DB.prepare("INSERT INTO maintenance_runs (task,started_at,status) VALUES (?,?,?)").bind(task, started, "running").run();
-        // D1 retourne l'ID d'insertion via meta.last_row_id
         let id: number | null = (ins as any)?.meta?.last_row_id ?? null;
-        // Fallback if insertion id missing
         if (!id) {
             const row = await env.DB.prepare("SELECT id FROM maintenance_runs WHERE task=? AND started_at=? ORDER BY id DESC LIMIT 1").bind(task, started).first<{ id: number }>();
             id = row?.id ?? null;
@@ -686,7 +682,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             const row = await env.DB.prepare("SELECT id FROM images WHERE id=?").bind(id).first();
             if (!row) out.push({ key: obj.key, size: obj.size, uploaded: obj.uploaded });
         }
-        // Cloudflare R2 list: cursor naming differences handled
         const nextCursor = list.cursor || list.nextCursor || undefined;
         await maintAudit('scan_orphans', { found: out.length, truncated: !!list.truncated, limit, had_cursor: !!cursor }, admin.user_id);
         return json({ orphans: out, truncated: list.truncated, cursor: nextCursor });
@@ -728,6 +723,21 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const avatars = await sumPrefix('avatars/');
         await maintAudit('r2_stats', { images_count: images.count, images_bytes: images.total, avatars_count: avatars.count, avatars_bytes: avatars.total }, admin.user_id);
         return json({ images, avatars });
+    }
+
+    // DB Backups
+    if (req.method === 'GET' && path === '/api/admin/maint/backups') {
+        const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);
+        const list = await listBackups(env);
+        return json({ backups: list });
+    }
+    if (req.method === 'POST' && path === '/api/admin/maint/db-backup') {
+        const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);
+        const r = await recordRun('db_backup', async () => {
+            const res = await performDbBackup(env);
+            return { items: 1, meta: res };
+        });
+        return json(r);
     }
 
     if (req.method === 'POST' && path === '/api/admin/maint/test-mail') {
@@ -811,7 +821,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             const r = await env.DB.prepare('SELECT label FROM role_policies WHERE role=?').bind((info as any).role).first<{ label: string | null }>();
             role_label = r?.label || null;
         } catch { }
-        // Inclure taille avatar dans bytes_total
         let avatar_bytes = 0;
         try {
             if ((info as any)?.avatar_key) {
@@ -828,7 +837,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (req.method === "POST" && path === "/api/me/avatar") {
         const session = await requireSessionUser();
         if (!session) return apiError(ErrorCode.AUTH_REQUIRED, 401, translate('auth.unauthorized'));
-        // Cooldown check (column or fallback audit logs)
         const row = await env.DB.prepare("SELECT last_avatar_change_at FROM users WHERE id=?").bind(session.user_id).first<{ last_avatar_change_at: number | null }>();
         if (row?.last_avatar_change_at) {
             const now = Math.floor(Date.now() / 1000);
@@ -919,7 +927,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const user = await env.DB.prepare("SELECT password_hash FROM users WHERE id=?").bind(session.user_id).first<{ password_hash: string }>();
         if (!user) return apiError(ErrorCode.INVALID_DATA, 400, translate('common.not_found'));
 
-        // Verify current password
         const raw = Uint8Array.from(atob(user.password_hash), c => c.charCodeAt(0));
         const salt = raw.slice(0, 16); const hash = raw.slice(16);
         const enc = new TextEncoder();
@@ -930,7 +937,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         for (let i = 0; i < d.length; i++) equal |= d[i] ^ hash[i];
         if (equal !== 0) return apiError(ErrorCode.PASSWORD_INVALID_CURRENT, 401, translate('password.current_invalid'));
 
-        // Hash new password
         const salt2 = crypto.getRandomValues(new Uint8Array(16));
         const key2 = await crypto.subtle.importKey("raw", enc.encode(next), { name: "PBKDF2" }, false, ["deriveBits"]);
         const derived2 = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: salt2, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" }, key2, 256);
@@ -951,7 +957,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const urlObj = new URL(req.url);
         const rotate = urlObj.searchParams.get("rotate") === "1";
         const exists = await hasApiToken(env, session.user_id);
-        // Rotation cooldown (avoid too frequent refresh, e.g. 60s)
         if (rotate) {
             const meta = await getApiTokenMeta(env, session.user_id);
             if (meta && Date.now() / 1000 - meta.created_at < 60) {
@@ -959,7 +964,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             }
         }
         if (exists && !rotate) {
-            // Ne pas révéler le token (stocké haché). Indiquer seulement qu'il existe déjà.
             return json({ ok: true, already: true });
         }
         const token = await refreshApiToken(env, session.user_id);

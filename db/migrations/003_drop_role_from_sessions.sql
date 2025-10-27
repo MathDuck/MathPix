@@ -1,6 +1,6 @@
 -- 003: Retrait colonne role de sessions
 PRAGMA foreign_keys=OFF;
-BEGIN TRANSACTION;
+-- BEGIN TRANSACTION; -- interdit par D1, transactions gérées par Wrangler
 CREATE TABLE sessions_new (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -12,5 +12,5 @@ INSERT INTO sessions_new (id,user_id,expires_at,created_at)
   SELECT id,user_id,expires_at,created_at FROM sessions;
 DROP TABLE sessions;
 ALTER TABLE sessions_new RENAME TO sessions;
-COMMIT;
+-- COMMIT; -- interdit par D1
 PRAGMA foreign_keys=ON;

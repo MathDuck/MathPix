@@ -18,6 +18,7 @@ export interface Env {
     DISCORD_WEBHOOK_ENABLED?: string;
 
     CLEANUP_ENABLED?: string;
+    BACKUP_ENABLED: string;
     COOKIE_SECRET: string;
     BASE_URL: string;
 }

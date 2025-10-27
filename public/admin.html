@@ -342,6 +342,30 @@
                 </button>
               </div>
             </div>
+            <!-- DB Backup -->
+            <div class="maint-card" id="card-db-backup">
+              <div class="maint-card-head">
+                <h3>Backup base de données</h3>
+                <span class="maint-badge live">Auto</span>
+              </div>
+              <p class="maint-desc">
+                Sauvegarde D1 -> R2 (JSON.gz), rotation 5 dernières. Auto tous
+                les 4 jours.
+              </p>
+              <div class="maint-actions">
+                <button class="btn btn-primary btn-sm" id="dbBackupBtn">
+                  Sauvegarder maintenant
+                </button>
+                <button class="btn btn-secondary btn-sm" id="refreshBackupsBtn">
+                  Rafraîchir
+                </button>
+              </div>
+              <div class="maint-meta" id="dbBackupMeta">
+                <span class="label">Dernière sauvegarde:</span>
+                <span class="value" id="dbBackupLast">—</span>
+              </div>
+              <div class="maint-list" id="dbBackupsList"></div>
+            </div>
             <!-- Test mail -->
             <div class="maint-card" id="card-test-mail">
               <div class="maint-card-head">
@@ -458,7 +482,9 @@
           </div>
           <div class="muted" style="margin-bottom: 0.75rem">
             Null/vides ou -1 = illimité (daily) / aucun cooldown / pas
-            d'auto-suppression.
+            d'auto-suppression.<br />
+            Note: pour les invités (anonymes), les images sont supprimées si
+            elles ne sont pas accédées pendant 15 jours.
           </div>
           <table class="table responsive small">
             <thead>

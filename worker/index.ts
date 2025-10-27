@@ -1,6 +1,7 @@
 import { route } from "./router";
 import { Env } from "./env.d";
 import { runCleanup } from "./utils";
+import { maybeAutoBackup } from "./backup";
 
 async function serveAsset(request: Request): Promise<Response | null> {
     const url = new URL(request.url);
@@ -42,6 +43,9 @@ export default {
     async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
         if (env.CLEANUP_ENABLED === "true") {
             ctx.waitUntil(runCleanup(env));
+        }
+        if (env.BACKUP_ENABLED === 'true') {
+            ctx.waitUntil(maybeAutoBackup(env, 4 * 24 * 3600));
         }
     }
 };

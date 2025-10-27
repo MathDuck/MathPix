@@ -75,7 +75,8 @@ export const deleteImageR2 = (env: Env, key: string) => env.R2.delete(key);
 // Quotas dynamiques
 export type QuotaInfo = { role: string; daily: number | null; cooldownSec: number | null; autoDeleteSec: number | null };
 const FALLBACK_ROLE_POLICIES: Record<string, { daily: number | null; cooldownSec: number | null; autoDeleteSec: number | null }> = {
-    anon: { daily: 10, cooldownSec: 60, autoDeleteSec: 7 * 24 * 60 * 60 }
+    // Anonymes: plus d'auto-suppression fixe; on utilisera l'inactivité 31j côté cleanup
+    anon: { daily: 10, cooldownSec: 60, autoDeleteSec: null }
 };
 const rolePolicyCache = new Map<string, { p: QuotaInfo; ts: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;

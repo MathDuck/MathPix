@@ -18,6 +18,7 @@ SENDINBLUE_API_URL = "https://api.brevo.com/v3/smtp/email"
 SENDINBLUE_API_KEY = "${SENDINBLUE_API_KEY}" # secret
 MAIL_SENDER = "no-reply@example.com"
 MAIL_SENDER_NAME = "Example CDN"
+BACKUP_ENABLED = "true"
 
 # Optionnel: account_id (sinon lu depuis profil wrangler)
 # account_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

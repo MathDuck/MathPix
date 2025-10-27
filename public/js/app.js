@@ -9,7 +9,7 @@ function roleExplain(sess) {
     const daily = q.daily == null ? 'illimité' : q.daily + ' / jour';
     const cd = q.cooldownSec == null ? 'aucun cooldown' : `cooldown ${q.cooldownSec}s`;
     function autoDeleteLabel(sec) {
-        if (sec == null) return 'pas de suppression auto';
+        if (sec == null) return role === 'anon' ? 'suppression après 15 jours sans accès' : 'pas de suppression auto';
         const d = Math.round(sec / 86400);
         if (d === 7) return 'suppression après 7 jours';
         if (d === 365 || d === 366) return 'suppression après 1 an';

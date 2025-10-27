@@ -1,6 +1,6 @@
 -- 004: Retrait colonne role de images + recréation index
 PRAGMA foreign_keys=OFF;
-BEGIN TRANSACTION;
+-- BEGIN TRANSACTION; -- transactions SQL non supportées, laisser Wrangler gérer
 CREATE TABLE images_new (
   id TEXT PRIMARY KEY,
   owner_id TEXT,
@@ -20,5 +20,5 @@ ALTER TABLE images_new RENAME TO images;
 CREATE INDEX IF NOT EXISTS idx_images_owner ON images(owner_id);
 CREATE INDEX IF NOT EXISTS idx_images_ip ON images(ip);
 CREATE INDEX IF NOT EXISTS idx_images_autodel ON images(auto_delete_at);
-COMMIT;
+-- COMMIT; -- non supporté
 PRAGMA foreign_keys=ON;
