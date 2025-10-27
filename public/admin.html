@@ -342,30 +342,6 @@
                 </button>
               </div>
             </div>
-            <!-- DB Backup -->
-            <div class="maint-card" id="card-db-backup">
-              <div class="maint-card-head">
-                <h3>Backup base de données</h3>
-                <span class="maint-badge live">Auto</span>
-              </div>
-              <p class="maint-desc">
-                Sauvegarde D1 -> R2 (JSON.gz), rotation 5 dernières. Auto tous
-                les 4 jours.
-              </p>
-              <div class="maint-actions">
-                <button class="btn btn-primary btn-sm" id="dbBackupBtn">
-                  Sauvegarder maintenant
-                </button>
-                <button class="btn btn-secondary btn-sm" id="refreshBackupsBtn">
-                  Rafraîchir
-                </button>
-              </div>
-              <div class="maint-meta" id="dbBackupMeta">
-                <span class="label">Dernière sauvegarde:</span>
-                <span class="value" id="dbBackupLast">—</span>
-              </div>
-              <div class="maint-list" id="dbBackupsList"></div>
-            </div>
             <!-- Test mail -->
             <div class="maint-card" id="card-test-mail">
               <div class="maint-card-head">
@@ -457,6 +433,35 @@
               <tbody id="maintHistoryBody"></tbody>
             </table>
           </div>
+          <!-- Backups base de données -->
+          <h2 class="sub-title" style="margin-top: 1.5rem">
+            Backups base de données
+          </h2>
+          <div
+            class="toolbar"
+            style="gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem"
+          >
+            <button class="btn btn-primary btn-sm" id="dbBackupBtn">
+              Sauvegarder maintenant
+            </button>
+            <button class="btn btn-secondary btn-sm" id="refreshBackupsBtn">
+              Rafraîchir
+            </button>
+            <span class="muted"
+              >Rotation: 5 dernières • Auto: tous les 4 jours</span
+            >
+          </div>
+          <table class="table small responsive">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Taille</th>
+                <th>Date</th>
+                <th>Télécharger</th>
+              </tr>
+            </thead>
+            <tbody id="dbBackupsBody"></tbody>
+          </table>
         </section>
         <!-- Rôles / Quotas -->
         <section class="admin-section" id="section-roles">

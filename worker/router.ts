@@ -725,6 +725,20 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         return json({ images, avatars });
     }
 
+    if (req.method === 'GET' && path === '/api/admin/maint/backup/download') {
+        const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);
+        const u = new URL(req.url);
+        const key = u.searchParams.get('key') || '';
+        if (!key || !/^backups\//.test(key)) return apiError(ErrorCode.INVALID_DATA, 400, 'Invalid key');
+        const obj = await env.R2.get(key);
+        if (!obj) return apiError(ErrorCode.NOT_FOUND, 404, translate('common.not_found'));
+        const filename = key.split('/').pop() || 'backup.json.gz';
+        const h = new Headers();
+        h.set('content-type', obj.httpMetadata?.contentType || 'application/gzip');
+        h.set('content-disposition', `attachment; filename="${filename}"`);
+        return new Response(obj.body, { status: 200, headers: h });
+    }
+
     // DB Backups
     if (req.method === 'GET' && path === '/api/admin/maint/backups') {
         const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);

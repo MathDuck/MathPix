@@ -628,24 +628,26 @@ async function loadRolePolicies() {
     });
 }
 
-// --- DB Backups ---
+// --- DB Backups (table) ---
 async function loadDbBackups() {
-    const listEl = $('dbBackupsList'); const lastEl = $('dbBackupLast');
-    if (listEl) listEl.innerHTML = '<div class="muted">Chargement…</div>';
+    const body = $('dbBackupsBody');
+    if (!body) return;
+    body.innerHTML = '<tr><td colspan="4">Chargement…</td></tr>';
     const { json } = await fetchJson('/api/admin/maint/backups');
     const backups = (json && Array.isArray(json.backups)) ? json.backups : [];
-    if (backups.length && lastEl) lastEl.textContent = new Date(backups[backups.length - 1].uploaded * 1000).toLocaleString();
-    if (listEl) {
-        if (!backups.length) { listEl.innerHTML = '<div class="muted">Aucun backup</div>'; return; }
-        const frag = document.createDocumentFragment();
-        backups.slice().reverse().forEach(b => {
-            const div = document.createElement('div'); div.className = 'backup-row';
-            const name = b.key.split('/').pop();
-            div.innerHTML = `<span class='code'>${name}</span> <span class='muted'>${formatBytes(b.size)} • ${new Date(b.uploaded * 1000).toLocaleString()}</span>`;
-            frag.appendChild(div);
-        });
-        listEl.innerHTML = ''; listEl.appendChild(frag);
-    }
+    if (!backups.length) { body.innerHTML = '<tr><td colspan="4" class="muted">Aucun backup</td></tr>'; return; }
+    const frag = document.createDocumentFragment();
+    backups.slice().reverse().forEach(b => {
+        const tr = document.createElement('tr');
+        const name = (b.key || '').split('/').pop();
+        const size = typeof b.size === 'number' ? formatBytes(b.size) : '';
+        const date = b.uploaded ? new Date(b.uploaded * 1000).toLocaleString() : '';
+        const dl = `/api/admin/maint/backup/download?key=${encodeURIComponent(b.key)}`;
+        tr.innerHTML = `<td><span class='code'>${escapeHtml(name || b.key)}</span></td><td>${size}</td><td>${date}</td><td><a href='${dl}' class='btn btn-secondary btn-xs'>Télécharger</a></td>`;
+        frag.appendChild(tr);
+    });
+    body.innerHTML = '';
+    body.appendChild(frag);
 }
 
 async function maintDbBackupNow() {
