@@ -10,11 +10,16 @@ function roleExplain(sess) {
     const cd = q.cooldownSec == null ? 'aucun cooldown' : `cooldown ${q.cooldownSec}s`;
     function autoDeleteLabel(sec) {
         if (sec == null) return role === 'anon' ? 'suppression après 15 jours sans accès' : 'pas de suppression auto';
-        const d = Math.round(sec / 86400);
-        if (d === 7) return 'suppression après 7 jours';
-        if (d === 365 || d === 366) return 'suppression après 1 an';
-        if (d % 30 === 0) return `suppression après ${d / 30} mois`;
-        return `suppression après ${d} jours`;
+        const d = Math.round(sec / 86400); // jours
+        if (d <= 31) {
+            return `suppression après ${d} ${d === 1 ? 'jour' : 'jours'} sans accès`;
+        }
+        if (d < 365) {
+            const m = Math.max(1, Math.round(d / 30));
+            return `suppression après ${m} mois sans accès`;
+        }
+        const y = Math.max(1, Math.round(d / 365));
+        return `suppression après ${y} ${y === 1 ? 'an' : 'ans'} sans accès`;
     }
     const del = autoDeleteLabel(q.autoDeleteSec);
     return `${label}: ${daily} (${cd}, ${del})`;
