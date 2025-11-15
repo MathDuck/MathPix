@@ -181,7 +181,8 @@ function renderDashboardRecent(list) {
                     original_name: img.original_name,
                     last_access_at: img.last_access_at,
                     owner_id: img.owner_id,
-                    created_at: img.created_at
+                    created_at: img.created_at,
+                    owner_role: img.owner_role
                 });
             }
         });
@@ -270,7 +271,7 @@ async function loadAllImages() {
         const ownerUsername = imageRow.owner_username || 'Anonyme';
         const tr = document.createElement('tr');
         const apiBadge = imageRow.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
-    tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\" data-owner-id=\"${imageRow.owner_id || ''}\" data-created=\"${imageRow.created_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
+        tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\" data-owner-id=\"${imageRow.owner_id || ''}\" data-owner-role=\"${imageRow.owner_role || ''}\" data-created=\"${imageRow.created_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
         tbody.appendChild(tr);
         ids.push(imageRow.id);
     });
@@ -290,7 +291,9 @@ async function loadAllImages() {
         const owner_id = ownerAttr ? ownerAttr : undefined;
         const cr = button.getAttribute('data-created');
         const created_at = cr ? parseInt(cr, 10) : undefined;
-        openLightbox({ id: button.getAttribute('data-id'), url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at });
+        const roleAttr = button.getAttribute('data-owner-role');
+        const owner_role = roleAttr || undefined;
+        openLightbox({ id: button.getAttribute('data-id'), url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at, owner_role });
     }));
     enrichOptimBadges(ids);
 }
@@ -376,13 +379,19 @@ function openLightbox(img) {
     const safeOrigName = img.original_name ? escapeHtml(img.original_name) : '-';
     const idBadge = img.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
     const lastAccess = img.last_access_at ? __dateFmt.format(new Date(img.last_access_at * 1000)) : '—';
-    // Estimation suppression (anonymes: 15 jours après dernier accès)
+    // Estimation suppression par rôle
     let deletionEst = '—';
-    const isAnon = !img.owner_id; // owner_id absent => anonyme
+    const role = img.owner_role || (!img.owner_id ? 'anon' : 'user');
     const baseTs = img.last_access_at || img.created_at || null;
-    if (isAnon && baseTs) {
-        const delTsMs = (baseTs + 15 * 24 * 3600) * 1000;
-        deletionEst = __dateFmt.format(new Date(delTsMs));
+    if (baseTs) {
+        if (role === 'anon') {
+            deletionEst = __dateFmt.format(new Date((baseTs + 15 * 24 * 3600) * 1000));
+        } else if (role === 'user') {
+            // 6 mois ~ 182 jours
+            deletionEst = __dateFmt.format(new Date((baseTs + 182 * 24 * 3600) * 1000));
+        } else if (role === 'vip' || role === 'admin') {
+            deletionEst = 'Jamais';
+        }
     }
     metaEl.innerHTML = `
         <h3>Détails</h3>

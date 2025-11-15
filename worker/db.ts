@@ -144,13 +144,29 @@ export async function createAudit(env: Env, o: {
 
 export async function scheduleForDeletion(env: Env, nowSec: number) {
     const FIFTEEN_DAYS = 15 * 24 * 60 * 60;
-    const cutoff = nowSec - FIFTEEN_DAYS;
+    const SIX_MONTHS = 182 * 24 * 60 * 60; // ~6 mois
+    const cutoffAnon = nowSec - FIFTEEN_DAYS;
+    const cutoffUser = nowSec - SIX_MONTHS;
     return await env.DB.prepare(
-        `SELECT id,key FROM images
-             WHERE (auto_delete_at IS NOT NULL AND auto_delete_at <= ?)
-                OR (owner_id IS NULL AND COALESCE(last_access_at, created_at) <= ?)
-             LIMIT 500`
-    ).bind(nowSec, cutoff).all();
+        `SELECT i.id, i.key
+           FROM images i
+           LEFT JOIN users u ON u.id = i.owner_id
+          WHERE (
+                    i.auto_delete_at IS NOT NULL
+                AND i.auto_delete_at <= ?
+                AND (u.role IS NULL OR u.role NOT IN ('vip','admin'))
+          )
+             OR (
+                    i.owner_id IS NULL
+                AND COALESCE(i.last_access_at, i.created_at) <= ?
+          )
+             OR (
+                    i.owner_id IS NOT NULL
+                AND u.role = 'user'
+                AND COALESCE(i.last_access_at, i.created_at) <= ?
+          )
+          LIMIT 500`
+    ).bind(nowSec, cutoffAnon, cutoffUser).all();
 }
 
 // --- Role policies ---
