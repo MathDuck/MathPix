@@ -171,7 +171,20 @@ function renderDashboardRecent(list) {
         const apiBadge = img.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
         const adminUrl = img.url + (img.url.includes('?') ? '&' : '?') + 'no_track=1&source=admin';
         row.innerHTML = `<div class="recent-cell-id">${img.id}${apiBadge}</div><div class="recent-cell-user">${uname}${img.owner_id ? `<br><span class='muted'>${img.owner_id}</span>` : ''}</div><div class="recent-cell-date" data-optim-target="${img.id}">${created}</div><div class="recent-cell-actions"><button type="button" class="btn btn-secondary btn-xs" data-act="open">Voir</button><a href="${adminUrl}" class="btn btn-primary btn-xs" target="_blank" rel="noopener" data-act="direct">Ouvrir</a></div>`;
-        row.addEventListener('click', e => { if (e.target.getAttribute && e.target.getAttribute('data-act') === 'open') openLightbox({ id: img.id, url: adminUrl, ext: img.ext, size: img.size, original_name: img.original_name, last_access_at: img.last_access_at }); });
+        row.addEventListener('click', e => {
+            if (e.target.getAttribute && e.target.getAttribute('data-act') === 'open') {
+                openLightbox({
+                    id: img.id,
+                    url: adminUrl,
+                    ext: img.ext,
+                    size: img.size,
+                    original_name: img.original_name,
+                    last_access_at: img.last_access_at,
+                    owner_id: img.owner_id,
+                    created_at: img.created_at
+                });
+            }
+        });
         frag.appendChild(row);
     });
     recent.appendChild(frag);
@@ -257,7 +270,7 @@ async function loadAllImages() {
         const ownerUsername = imageRow.owner_username || 'Anonyme';
         const tr = document.createElement('tr');
         const apiBadge = imageRow.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
-        tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
+    tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\" data-owner-id=\"${imageRow.owner_id || ''}\" data-created=\"${imageRow.created_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
         tbody.appendChild(tr);
         ids.push(imageRow.id);
     });
@@ -273,7 +286,11 @@ async function loadAllImages() {
         const button = e.currentTarget;
         const la = button.getAttribute('data-last-access');
         const last_access_at = la ? parseInt(la, 10) : undefined;
-        openLightbox({ id: button.getAttribute('data-id'), url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), original_name: button.getAttribute('data-original-name') || undefined, last_access_at });
+        const ownerAttr = button.getAttribute('data-owner-id');
+        const owner_id = ownerAttr ? ownerAttr : undefined;
+        const cr = button.getAttribute('data-created');
+        const created_at = cr ? parseInt(cr, 10) : undefined;
+        openLightbox({ id: button.getAttribute('data-id'), url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at });
     }));
     enrichOptimBadges(ids);
 }
@@ -359,12 +376,21 @@ function openLightbox(img) {
     const safeOrigName = img.original_name ? escapeHtml(img.original_name) : '-';
     const idBadge = img.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
     const lastAccess = img.last_access_at ? __dateFmt.format(new Date(img.last_access_at * 1000)) : '—';
+    // Estimation suppression (anonymes: 15 jours après dernier accès)
+    let deletionEst = '—';
+    const isAnon = !img.owner_id; // owner_id absent => anonyme
+    const baseTs = img.last_access_at || img.created_at || null;
+    if (isAnon && baseTs) {
+        const delTsMs = (baseTs + 15 * 24 * 3600) * 1000;
+        deletionEst = __dateFmt.format(new Date(delTsMs));
+    }
     metaEl.innerHTML = `
         <h3>Détails</h3>
         <div class='lb-row'><span class='lb-label'>ID</span><span class='lb-value'>${img.id} ${idBadge}</span></div>
         <div class='lb-row'><span class='lb-label'>Extension</span><span class='lb-value'>${img.ext || ''}</span></div>
         <div class='lb-row'><span class='lb-label'>Nom original</span><span class='lb-value'>${safeOrigName}</span></div>
         <div class='lb-row'><span class='lb-label'>Dernier accès</span><span class='lb-value'>${lastAccess}</span></div>
+        <div class='lb-row'><span class='lb-label'>Suppression estimée</span><span class='lb-value'>${deletionEst}</span></div>
         <div class='lb-row'><span class='lb-label'>Taille</span><span class='lb-value' id='lb-size-orig'>${formatBytes(img.size || 0)}</span></div>
         <div class='lb-row'><span class='lb-label'>Taille finale</span><span class='lb-value' id='lb-size-final'>—</span></div>
         <div class='lb-row'><span class='lb-label'>Pourcentage</span><span class='lb-value' id='lb-size-pct'>—</span></div>
