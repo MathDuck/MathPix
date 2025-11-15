@@ -386,11 +386,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function openLightbox(img) {
     const lb = $('lightbox'); if (!lb) return;
     const imgEl = $('lightboxImg'); const metaEl = $('lightboxMeta');
-    imgEl.src = img.url;
+    const fullUrl = /^https?:\/\//i.test(img.url) ? img.url : (location.origin + img.url);
+    const uClean = new URL(fullUrl);
+    uClean.searchParams.delete('no_track');
+    uClean.searchParams.delete('source');
+    const cleanUrl = uClean.toString();
+    const uNotrack = new URL(cleanUrl);
+    uNotrack.searchParams.set('no_track', '1');
+    const notrackUrl = uNotrack.toString();
+    imgEl.src = notrackUrl;
     const safeOrigName = img.original_name ? escapeHtml(img.original_name) : '-';
     const idBadge = img.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
     const lastAccess = img.last_access_at ? __dateFmt.format(new Date(img.last_access_at * 1000)) : '—';
-    // Estimation suppression uniquement si role_policies.auto_delete_sec est défini
     let deletionEst = '—';
     const role = img.owner_role || (!img.owner_id ? 'anon' : 'user');
     const baseTs = img.last_access_at || img.created_at || null;
@@ -411,16 +418,19 @@ function openLightbox(img) {
         <div class='lb-row'><span class='lb-label'>Taille finale</span><span class='lb-value' id='lb-size-final'>—</span></div>
         <div class='lb-row'><span class='lb-label'>Pourcentage</span><span class='lb-value' id='lb-size-pct'>—</span></div>
         <div class='lb-actions'>
-            <button class='btn btn-secondary btn-xs' data-copy='url'>Copier URL</button>
-            <a class='btn btn-primary btn-xs' href='${img.url}' target='_blank' rel='noopener'>Ouvrir</a>
+            <button class='btn btn-secondary btn-xs' data-copy='url-clean'>Copier URL</button>
+            <button class='btn btn-secondary btn-xs' data-copy='url-notrack'>Copier URL (no_track)</button>
+            <a class='btn btn-primary btn-xs' href='${notrackUrl}' target='_blank' rel='noopener'>Ouvrir</a>
         </div>`;
     lb.style.display = 'flex';
     const escHandler = e => { if (e.key === 'Escape') closeLightbox(); };
     document.addEventListener('keydown', escHandler);
     lb.dataset.esc = '1';
     lb.querySelectorAll('[data-close]').forEach(el => { el.onclick = () => closeLightbox(); });
-    const copyBtn = metaEl.querySelector('[data-copy=url]');
-    if (copyBtn) copyBtn.addEventListener('click', async () => { try { await navigator.clipboard.writeText(img.url); toast('URL copiée', { type: 'success' }); } catch { toast('Copie impossible', { type: 'error' }); } });
+    const copyBtnClean = metaEl.querySelector('[data-copy=url-clean]');
+    if (copyBtnClean) copyBtnClean.addEventListener('click', async () => { try { await navigator.clipboard.writeText(cleanUrl); toast('URL copiée', { type: 'success' }); } catch { toast('Copie impossible', { type: 'error' }); } });
+    const copyBtnNoTrack = metaEl.querySelector('[data-copy=url-notrack]');
+    if (copyBtnNoTrack) copyBtnNoTrack.addEventListener('click', async () => { try { await navigator.clipboard.writeText(notrackUrl); toast('URL copiée (no_track)', { type: 'success' }); } catch { toast('Copie impossible', { type: 'error' }); } });
     function closeLightbox() { lb.style.display = 'none'; if (lb.dataset.esc) { document.removeEventListener('keydown', escHandler); delete lb.dataset.esc; } }
     lb.addEventListener('mousedown', e => { if (e.target.classList.contains('lightbox-backdrop')) closeLightbox(); }, { once: true });
 
