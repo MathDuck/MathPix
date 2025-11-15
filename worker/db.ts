@@ -143,14 +143,12 @@ export async function createAudit(env: Env, o: {
 }
 
 export async function scheduleForDeletion(env: Env, nowSec: number) {
-    const FIFTEEN_DAYS = 15 * 24 * 60 * 60;
-    const SIX_MONTHS = 182 * 24 * 60 * 60; // ~6 mois
-    const cutoffAnon = nowSec - FIFTEEN_DAYS;
-    const cutoffUser = nowSec - SIX_MONTHS;
     return await env.DB.prepare(
         `SELECT i.id, i.key
            FROM images i
            LEFT JOIN users u ON u.id = i.owner_id
+           LEFT JOIN role_policies rp_u ON rp_u.role = u.role
+           LEFT JOIN role_policies rp_anon ON rp_anon.role = 'anon'
           WHERE (
                     i.auto_delete_at IS NOT NULL
                 AND i.auto_delete_at <= ?
@@ -158,15 +156,16 @@ export async function scheduleForDeletion(env: Env, nowSec: number) {
           )
              OR (
                     i.owner_id IS NULL
-                AND COALESCE(i.last_access_at, i.created_at) <= ?
+                AND rp_anon.auto_delete_sec IS NOT NULL
+                AND COALESCE(i.last_access_at, i.created_at) + rp_anon.auto_delete_sec <= ?
           )
              OR (
                     i.owner_id IS NOT NULL
-                AND u.role = 'user'
-                AND COALESCE(i.last_access_at, i.created_at) <= ?
+                AND rp_u.auto_delete_sec IS NOT NULL
+                AND COALESCE(i.last_access_at, i.created_at) + rp_u.auto_delete_sec <= ?
           )
           LIMIT 500`
-    ).bind(nowSec, cutoffAnon, cutoffUser).all();
+    ).bind(nowSec, nowSec, nowSec).all();
 }
 
 // --- Role policies ---

@@ -29,6 +29,7 @@ const fmtDate = (tsSec) => tsSec ? __dateFmt.format(new Date(tsSec * 1000)) : ''
 let __dashPrev = { statsHash: '', recentHash: '', ipsHash: '' };
 let __maintHistoryTimer = null;
 const __optimCache = new Map();
+let __rolePoliciesCache = null; // { [role]: { auto_delete_sec, label } }
 const escapeHtml = (value) => (window.escapeHtml ? window.escapeHtml(value) : String(value));
 const $ = (id) => document.getElementById(id);
 const toast = (m, o) => { if (window.__toast) window.__toast(m, o); };
@@ -38,7 +39,7 @@ const confirmAction = (msg) => window.confirm(msg);
 const DASH_CACHE_TTL = 10000;
 let __dashCache = { data: null, ts: 0 };
 
-document.addEventListener('DOMContentLoaded', async () => { const sess = await mustAdmin(); currentUserId = sess.user_id || null; initNav(); await loadDashboard(); });
+document.addEventListener('DOMContentLoaded', async () => { const sess = await mustAdmin(); currentUserId = sess.user_id || null; initNav(); await primeRolePolicies(); await loadDashboard(); });
 
 function initNav() {
     const nav = document.getElementById('adminNav');
@@ -71,6 +72,16 @@ function initNav() {
     bind('discordTestBtn', maintDiscordTest);
     bind('dbBackupBtn', maintDbBackupNow);
     bind('refreshBackupsBtn', loadDbBackups);
+    // rien ici: role policies chargées au démarrage désormais
+}
+
+async function primeRolePolicies() {
+    try {
+        const { json } = await fetchJson('/api/admin/role-policies');
+        const map = {};
+        (json.policies || []).forEach(p => { map[p.role] = { auto_delete_sec: p.auto_delete_sec, label: p.label || p.role }; });
+        __rolePoliciesCache = map;
+    } catch { __rolePoliciesCache = null; }
 }
 
 // --- Dashboard (refactor + optimisations) ---
@@ -379,19 +390,15 @@ function openLightbox(img) {
     const safeOrigName = img.original_name ? escapeHtml(img.original_name) : '-';
     const idBadge = img.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
     const lastAccess = img.last_access_at ? __dateFmt.format(new Date(img.last_access_at * 1000)) : '—';
-    // Estimation suppression par rôle
+    // Estimation suppression uniquement si role_policies.auto_delete_sec est défini
     let deletionEst = '—';
     const role = img.owner_role || (!img.owner_id ? 'anon' : 'user');
     const baseTs = img.last_access_at || img.created_at || null;
-    if (baseTs) {
-        if (role === 'anon') {
-            deletionEst = __dateFmt.format(new Date((baseTs + 15 * 24 * 3600) * 1000));
-        } else if (role === 'user') {
-            // 6 mois ~ 182 jours
-            deletionEst = __dateFmt.format(new Date((baseTs + 182 * 24 * 3600) * 1000));
-        } else if (role === 'vip' || role === 'admin') {
-            deletionEst = 'Jamais';
-        }
+    if (role === 'vip' || role === 'admin') {
+        deletionEst = 'Jamais';
+    } else if (__rolePoliciesCache && __rolePoliciesCache[role] && __rolePoliciesCache[role].auto_delete_sec != null && baseTs) {
+        const autoSec = __rolePoliciesCache[role].auto_delete_sec;
+        deletionEst = __dateFmt.format(new Date((baseTs + autoSec) * 1000));
     }
     metaEl.innerHTML = `
         <h3>Détails</h3>

@@ -311,7 +311,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const role: string = (body.role || '').trim();
         const label: string | null = body.label && typeof body.label === 'string' ? body.label.trim().slice(0, 40) : null;
         if (!role || /[^a-z0-9_\-]/i.test(role) || role.length > 32) return apiError(ErrorCode.INVALID_DATA, 400, translate('invalid.form'));
-        if (['anon', 'admin'].includes(role)) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
+        if (['admin'].includes(role)) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
         function norm(val: any) {
             if (val === null || val === undefined || val === '') return null;
             const n = Number(val);
