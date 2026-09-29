@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
@@ -165,6 +165,7 @@
                 <th>ID</th>
                 <th>Owner</th>
                 <th>Créée</th>
+                <th>Vues</th>
                 <th>URL</th>
                 <th></th>
               </tr>
@@ -515,6 +516,22 @@
     <div class="lightbox-backdrop" data-close></div>
     <div class="lightbox-dialog">
       <button class="lightbox-close" data-close>&times;</button>
+      <button
+        class="lightbox-nav lightbox-prev"
+        id="lightboxPrev"
+        aria-label="Image précédente"
+        hidden
+      >
+        &#8249;
+      </button>
+      <button
+        class="lightbox-nav lightbox-next"
+        id="lightboxNext"
+        aria-label="Image suivante"
+        hidden
+      >
+        &#8250;
+      </button>
       <div class="lightbox-body">
         <div class="lightbox-preview">
           <img id="lightboxImg" alt="preview" />

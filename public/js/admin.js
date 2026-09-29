@@ -18,6 +18,7 @@ async function mustAdmin() {
 // --- State ---
 // Limites fixes (20) + logs
 let usersPage = 1, usersLimit = 20; let imagesPage = 1, imagesLimit = 20; let logsPage = 1, logsLimit = 20; let ipPage = 1, ipLimit = 20; let currentUserId = null;
+let __imagesList = []; // liste courante de l'onglet Images (pour la navigation lightbox)
 const loadedSections = new Set();
 const loaders = { dashboard: loadDashboard, users: loadUsers, images: loadAllImages, ip: loadIPs, logs: loadLogs, maintenance: () => { loadMaintHistory(); }, roles: loadRolePolicies };
 
@@ -124,11 +125,11 @@ function renderDashboardError(err) {
 function renderDashboard(data) {
     const safe = (o, d = {}) => o || d;
     const users = safe(data.users, { total: 0, active: 0, disabled: 0 });
-    const images = safe(data.images, { total: 0, last24h: 0, last1h: 0, bytes_total: 0 });
+    const images = safe(data.images, { total: 0, last24h: 0, last1h: 0, bytes_total: 0, views_total: 0 });
     const audit = safe(data.audit, { last24h: 0 });
     const statsShape = {
         uT: users.total, uA: users.active, uD: users.disabled,
-        iT: images.total, i24: images.last24h, i1: images.last1h, iB: images.bytes_total,
+        iT: images.total, i24: images.last24h, i1: images.last1h, iB: images.bytes_total, iV: images.views_total,
         l24: audit.last24h
     };
     const recentImages = Array.isArray(data.recent_images) ? data.recent_images : [];
@@ -147,7 +148,7 @@ function renderDashboardStats(stats) {
     const grid = document.getElementById('dashStats'); if (!grid) return;
     const tiles = [
         ['Utilisateurs', stats.uT], ['Actifs', stats.uA], ['Désactivés', stats.uD],
-        ['Images', stats.iT], ['Images 24h', stats.i24], ['Images 1h', stats.i1], ['Stock total', formatBytes(stats.iB)], ['Logs 24h', stats.l24]
+        ['Images', stats.iT], ['Images 24h', stats.i24], ['Images 1h', stats.i1], ['Stock total', formatBytes(stats.iB)], ['Vues totales', stats.iV], ['Logs 24h', stats.l24]
     ];
     const frag = document.createDocumentFragment();
     tiles.forEach(([label, value]) => {
@@ -189,6 +190,7 @@ function renderDashboardRecent(list) {
                     url: adminUrl,
                     ext: img.ext,
                     size: img.size,
+                    views: img.views,
                     original_name: img.original_name,
                     last_access_at: img.last_access_at,
                     owner_id: img.owner_id,
@@ -277,12 +279,26 @@ async function loadAllImages() {
     const { json: data } = await fetchJson(`/api/admin/images?${params.toString()}`);
     const tbody = $('adminImagesBody'); tbody.innerHTML = '';
     const ids = [];
+    __imagesList = (data.images || []).map(imageRow => ({
+        id: imageRow.id,
+        url: `${location.origin}/i/${imageRow.id}${imageRow.ext}?no_track=1`,
+        ext: imageRow.ext,
+        size: imageRow.size || 0,
+        views: Number(imageRow.views || 0),
+        original_name: imageRow.original_name || undefined,
+        last_access_at: imageRow.last_access_at || undefined,
+        owner_id: imageRow.owner_id || undefined,
+        owner_role: imageRow.owner_role || undefined,
+        created_at: imageRow.created_at || undefined,
+        via_api: imageRow.via_api || false
+    }));
     (data.images || []).forEach(imageRow => {
         const imageUrl = `${location.origin}/i/${imageRow.id}${imageRow.ext}?no_track=1`;
         const ownerUsername = imageRow.owner_username || 'Anonyme';
         const tr = document.createElement('tr');
         const apiBadge = imageRow.via_api ? `<span class='api-badge' title='Upload via API token'>API</span>` : '';
-        tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\" data-owner-id=\"${imageRow.owner_id || ''}\" data-owner-role=\"${imageRow.owner_role || ''}\" data-created=\"${imageRow.created_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
+        const views = Number(imageRow.views || 0);
+        tr.innerHTML = `<td data-optim-target="${imageRow.id}">${imageRow.id}${apiBadge}</td><td>${imageRow.owner_id ? `${imageRow.owner_id}<br><span class='muted'>${ownerUsername}</span>` : 'Anonyme'}</td><td>${new Date(imageRow.created_at * 1000).toLocaleString()}</td><td>${numFmt.format(views)}</td><td><div class=\"btn-group-compact\"><button class=\"btn btn-secondary btn-xs view\" data-id=\"${imageRow.id}\" data-url=\"${imageUrl}\" data-ext=\"${imageRow.ext}\" data-size=\"${imageRow.size || 0}\" data-views=\"${views}\" data-original-name=\"${(imageRow.original_name || '').replace(/\\"/g, '&quot;')}\" data-last-access=\"${imageRow.last_access_at || ''}\" data-owner-id=\"${imageRow.owner_id || ''}\" data-owner-role=\"${imageRow.owner_role || ''}\" data-created=\"${imageRow.created_at || ''}\">Voir</button><button class=\"btn btn-error btn-xs del\" data-id=\"${imageRow.id}\">Suppr.</button></div></td>`;
         tbody.appendChild(tr);
         ids.push(imageRow.id);
     });
@@ -304,7 +320,11 @@ async function loadAllImages() {
         const created_at = cr ? parseInt(cr, 10) : undefined;
         const roleAttr = button.getAttribute('data-owner-role');
         const owner_role = roleAttr || undefined;
-        openLightbox({ id: button.getAttribute('data-id'), url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at, owner_role });
+        const viewsAttr = button.getAttribute('data-views');
+        const views = viewsAttr !== null ? parseInt(viewsAttr, 10) : undefined;
+        const imageId = button.getAttribute('data-id');
+        const navIndex = __imagesList.findIndex(x => x.id === imageId);
+        openLightbox({ id: imageId, url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), views, original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at, owner_role }, navIndex >= 0 ? navIndex : null);
     }));
     enrichOptimBadges(ids);
 }
@@ -383,8 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Lightbox ---
-function openLightbox(img) {
+function openLightbox(img, navIndex = null) {
     const lb = $('lightbox'); if (!lb) return;
+    if (lb.__escHandler) { document.removeEventListener('keydown', lb.__escHandler); lb.__escHandler = null; }
     const imgEl = $('lightboxImg'); const metaEl = $('lightboxMeta');
     const fullUrl = /^https?:\/\//i.test(img.url) ? img.url : (location.origin + img.url);
     const uClean = new URL(fullUrl);
@@ -412,6 +433,7 @@ function openLightbox(img) {
         <div class='lb-row'><span class='lb-label'>ID</span><span class='lb-value'>${img.id} ${idBadge}</span></div>
         <div class='lb-row'><span class='lb-label'>Extension</span><span class='lb-value'>${img.ext || ''}</span></div>
         <div class='lb-row'><span class='lb-label'>Nom original</span><span class='lb-value'>${safeOrigName}</span></div>
+        <div class='lb-row'><span class='lb-label'>Vues</span><span class='lb-value'>${numFmt.format(Number(img.views || 0))}</span></div>
         <div class='lb-row'><span class='lb-label'>Dernier accès</span><span class='lb-value'>${lastAccess}</span></div>
         <div class='lb-row'><span class='lb-label'>Suppression estimée</span><span class='lb-value'>${deletionEst}</span></div>
         <div class='lb-row'><span class='lb-label'>Taille</span><span class='lb-value' id='lb-size-orig'>${formatBytes(img.size || 0)}</span></div>
@@ -423,16 +445,42 @@ function openLightbox(img) {
             <a class='btn btn-primary btn-xs' href='${notrackUrl}' target='_blank' rel='noopener'>Ouvrir</a>
         </div>`;
     lb.style.display = 'flex';
-    const escHandler = e => { if (e.key === 'Escape') closeLightbox(); };
+    const escHandler = e => {
+        if (e.key === 'Escape') closeLightbox();
+        else if (e.key === 'ArrowLeft') navigate(-1);
+        else if (e.key === 'ArrowRight') navigate(1);
+    };
     document.addEventListener('keydown', escHandler);
+    lb.__escHandler = escHandler;
     lb.dataset.esc = '1';
     lb.querySelectorAll('[data-close]').forEach(el => { el.onclick = () => closeLightbox(); });
     const copyBtnClean = metaEl.querySelector('[data-copy=url-clean]');
     if (copyBtnClean) copyBtnClean.addEventListener('click', async () => { try { await navigator.clipboard.writeText(cleanUrl); toast('URL copiée', { type: 'success' }); } catch { toast('Copie impossible', { type: 'error' }); } });
     const copyBtnNoTrack = metaEl.querySelector('[data-copy=url-notrack]');
     if (copyBtnNoTrack) copyBtnNoTrack.addEventListener('click', async () => { try { await navigator.clipboard.writeText(notrackUrl); toast('URL copiée (no_track)', { type: 'success' }); } catch { toast('Copie impossible', { type: 'error' }); } });
-    function closeLightbox() { lb.style.display = 'none'; if (lb.dataset.esc) { document.removeEventListener('keydown', escHandler); delete lb.dataset.esc; } }
+    function closeLightbox() { lb.style.display = 'none'; if (lb.dataset.esc) { document.removeEventListener('keydown', escHandler); delete lb.dataset.esc; } lb.__escHandler = null; }
     lb.addEventListener('mousedown', e => { if (e.target.classList.contains('lightbox-backdrop')) closeLightbox(); }, { once: true });
+
+    // Navigation entre les images (onglet Images uniquement)
+    const prevBtn = $('lightboxPrev'); const nextBtn = $('lightboxNext');
+    const canNavigate = navIndex !== null && navIndex >= 0 && __imagesList.length > 1;
+    if (prevBtn && nextBtn) {
+        prevBtn.hidden = !canNavigate; nextBtn.hidden = !canNavigate;
+        if (canNavigate) {
+            prevBtn.disabled = navIndex <= 0;
+            nextBtn.disabled = navIndex >= __imagesList.length - 1;
+            prevBtn.onclick = () => navigate(-1);
+            nextBtn.onclick = () => navigate(1);
+        } else {
+            prevBtn.onclick = null; nextBtn.onclick = null;
+        }
+    }
+    function navigate(delta) {
+        if (!canNavigate) return;
+        const target = navIndex + delta;
+        if (target < 0 || target >= __imagesList.length) return;
+        openLightbox(__imagesList[target], target);
+    }
 
     (async () => {
         try {

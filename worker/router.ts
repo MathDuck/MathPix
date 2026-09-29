@@ -212,7 +212,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         try {
             const noTrack = (new URL(req.url)).searchParams.get('no_track') === '1';
             if (!noTrack) {
-                (ctx as any)?.waitUntil?.(env.DB.prepare("UPDATE images SET last_access_at=strftime('%s','now') WHERE id=?").bind(imageId).run());
+                (ctx as any)?.waitUntil?.(env.DB.prepare("UPDATE images SET last_access_at=strftime('%s','now'), views=views+1 WHERE id=?").bind(imageId).run());
             }
         } catch { }
         return new Response(obj.body, { status: 200, headers });
@@ -373,21 +373,22 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
               (SELECT COUNT(*) FROM images WHERE created_at >= ?) AS images_24h,
               (SELECT COUNT(*) FROM images WHERE created_at >= ?) AS images_1h,
               (SELECT COALESCE(SUM(size),0) FROM images) AS bytes_total,
+              (SELECT COALESCE(SUM(views),0) FROM images) AS views_total,
               (SELECT COUNT(*) FROM audit_logs WHERE created_at >= ?) AS audit_24h,
               (SELECT COUNT(*) FROM ip_blocks) AS ip_block_count
         `).bind(since24h, sinceHour, since24h).first<{
-            users_total: number; users_disabled: number; images_total: number; images_24h: number; images_1h: number; bytes_total: number; audit_24h: number; ip_block_count: number;
+            users_total: number; users_disabled: number; images_total: number; images_24h: number; images_1h: number; bytes_total: number; views_total: number; audit_24h: number; ip_block_count: number;
         }>();
         const topIpsPromise = env.DB.prepare("SELECT ip, score FROM ip_blocks ORDER BY score DESC LIMIT 5").all<{ ip: string; score: number }>();
         const [agg, topIps] = await Promise.all([aggPromise, topIpsPromise]);
         const recentImages = await env.DB.prepare(`
-        SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.last_access_at, i.original_name,
+        SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.last_access_at, i.views, i.original_name,
                u.username as owner_username, u.role as owner_role
                 FROM images i
                 LEFT JOIN users u ON u.id = i.owner_id
                 ORDER BY i.created_at DESC
                 LIMIT 10
-        `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; original_name: string | null; owner_username: string | null; owner_role: string | null }>();
+        `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>();
 
         const usersTotal = agg?.users_total || 0;
         const usersDisabled = agg?.users_disabled || 0;
@@ -395,9 +396,10 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const images24h = agg?.images_24h || 0;
         const images1h = agg?.images_1h || 0;
         const bytesTotal = agg?.bytes_total || 0;
+        const viewsTotal = agg?.views_total || 0;
         const audit24h = agg?.audit_24h || 0;
         const ipBlockCount = agg?.ip_block_count || 0;
-        const recentList = (recentImages.results || []) as Array<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; original_name: string | null; owner_username: string | null; owner_role: string | null }>;
+        const recentList = (recentImages.results || []) as Array<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>;
         let viaMap: Record<string, boolean> = {};
         if (recentList.length) {
             const idsCond = recentList.map(r => r.id).filter(Boolean);
@@ -413,10 +415,10 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         }
         const payloadObj = {
             users: { total: usersTotal, disabled: usersDisabled, active: usersTotal - usersDisabled },
-            images: { total: imagesTotal, last24h: images24h, last1h: images1h, bytes_total: bytesTotal },
+            images: { total: imagesTotal, last24h: images24h, last1h: images1h, bytes_total: bytesTotal, views_total: viewsTotal },
             audit: { last24h: audit24h },
             ip_blocks: { total: ipBlockCount, top: topIps.results || [] },
-            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, owner_role: r.owner_role, created_at: r.created_at, last_access_at: (r as any).last_access_at ?? null, original_name: (r as any).original_name || null, via_api: viaMap[r.id] || false })),
+            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, owner_role: r.owner_role, created_at: r.created_at, last_access_at: (r as any).last_access_at ?? null, views: (r as any).views ?? 0, original_name: (r as any).original_name || null, via_api: viaMap[r.id] || false })),
             generated_at: now
         };
         const body = JSON.stringify(payloadObj);
@@ -479,7 +481,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const page = Math.max(parseInt(u.searchParams.get("page") || "1", 10) || 1, 1);
         const offset = (page - 1) * limit;
         const rows = await env.DB.prepare(
-            `SELECT i.id, i.owner_id, u.username as owner_username, u.role as owner_role, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.auto_delete_at, i.original_name
+            `SELECT i.id, i.owner_id, u.username as owner_username, u.role as owner_role, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.views, i.auto_delete_at, i.original_name
                          FROM images i
                          LEFT JOIN users u ON u.id = i.owner_id
                          WHERE 1=1

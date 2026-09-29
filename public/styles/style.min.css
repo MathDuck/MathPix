@@ -40,11 +40,14 @@
   width: 220px !important;
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
-  transition: background-color 0.3s, color 0.3s;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
 }
 .container {
   max-width: 1200px;
@@ -1418,7 +1421,11 @@ button.forgot-link:focus-visible {
   display: inline-block;
   cursor: pointer;
   font-weight: 400;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
   padding: 0;
   z-index: 5;
 }
@@ -1470,7 +1477,9 @@ button.forgot-link:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .stat-box:hover {
   border-color: var(--accent-color);
@@ -1499,7 +1508,9 @@ button.forgot-link:focus-visible {
   background: var(--bg-secondary);
   position: relative;
   border: 1px solid var(--border-color);
-  transition: transform 0.15s, border-color 0.15s;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
 }
 .recent-thumb:hover {
   transform: translateY(-3px);
@@ -1574,7 +1585,10 @@ button.forgot-link:focus-visible {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   position: relative;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 .role-trigger:hover {
   background: var(--bg-primary);
@@ -1745,7 +1759,9 @@ button.forgot-link:focus-visible {
   line-height: 1.4;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.25s, transform 0.25s;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
   max-width: 520px;
 }
 .toast.show {
@@ -1885,7 +1901,9 @@ button.forgot-link:focus-visible {
   color: var(--text-primary);
   font-size: 0.7rem;
   width: 80px;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .rp-input:focus,
 #purgeLogsDays:focus,
@@ -2040,7 +2058,9 @@ button.forgot-link:focus-visible {
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
 }
 .recent-grid.list .recent-row:last-child {
   border-bottom: none;
@@ -2135,7 +2155,9 @@ button.forgot-link:focus-visible {
   color: var(--text-primary);
   line-height: 1.1;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .inline-role:hover {
   border-color: var(--accent-color);
@@ -2440,6 +2462,40 @@ button.forgot-link:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
+}
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.lightbox-nav:hover:not(:disabled) {
+  background: var(--accent-color);
+  color: #fff;
+  opacity: 1;
+}
+.lightbox-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.lightbox-prev {
+  left: 0.5rem;
+}
+.lightbox-next {
+  right: 0.5rem;
 }
 /* === Injected incremental styles (sync with style.css additions) === */
 .btn-group-compact {

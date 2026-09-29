@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS images (
   created_at INTEGER NOT NULL,
   ip TEXT NOT NULL,
   last_access_at INTEGER, -- mis à jour à chaque lecture /i/:id.ext
+  views INTEGER NOT NULL DEFAULT 0, -- compteur de lectures réelles (hors no_track)
   auto_delete_at INTEGER,
   FOREIGN KEY (owner_id) REFERENCES users(id)
 );
@@ -43,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_images_created ON images(created_at);
 CREATE INDEX IF NOT EXISTS idx_images_ip ON images(ip);
 CREATE INDEX IF NOT EXISTS idx_images_autodel ON images(auto_delete_at);
 CREATE INDEX IF NOT EXISTS idx_images_last_access ON images(last_access_at);
+CREATE INDEX IF NOT EXISTS idx_images_views ON images(views);
 
 -- IP blocks
 CREATE TABLE IF NOT EXISTS ip_blocks (
