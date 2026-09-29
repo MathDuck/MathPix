@@ -1,4 +1,7 @@
 -- 004: Retrait colonne role de images + recréation index
+-- NOTE: cette migration recrée la table. Elle inclut désormais TOUTES les colonnes
+-- présentes dans schema.sql (original_name, last_access_at, views) afin de ne pas
+-- les perdre sur une base construite via schema.sql + migrations.
 PRAGMA foreign_keys=OFF;
 -- BEGIN TRANSACTION; -- transactions SQL non supportées, laisser Wrangler gérer
 CREATE TABLE images_new (
@@ -7,9 +10,12 @@ CREATE TABLE images_new (
   key TEXT NOT NULL,
   ext TEXT NOT NULL,
   content_type TEXT NOT NULL,
+  original_name TEXT,
   size INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   ip TEXT NOT NULL,
+  last_access_at INTEGER,
+  views INTEGER NOT NULL DEFAULT 0,
   auto_delete_at INTEGER,
   FOREIGN KEY (owner_id) REFERENCES users(id)
 );

@@ -1,6 +1,6 @@
 import { Env } from "./env.d";
 import { listBackups, performDbBackup } from "./backup";
-import { getClientIp, getExtFromType, randomId, requireAdminGlobal, apiError, ErrorCode, checkAvatarCooldown, checkQuota, parseIncomingImage, putImage, getImage, deleteImageR2, isIpBlocked, createCaptcha, bumpIpScore, runCleanup, validateEmail, validatePassword, roleQuotasDynamic, AVATAR_COOLDOWN_SEC, PBKDF2_ITERATIONS, responseHelpers, clearRolePolicyCache } from "./utils";
+import { getClientIp, getExtFromType, randomId, requireAdminGlobal, apiError, ErrorCode, checkAvatarCooldown, checkQuota, parseIncomingImage, putImage, getImage, deleteImageR2, isIpBlocked, createCaptcha, bumpIpScore, runCleanup, validateEmail, validatePassword, roleQuotasDynamic, AVATAR_COOLDOWN_SEC, PBKDF2_ITERATIONS, responseHelpers, clearRolePolicyCache, decayIpScores } from "./utils";
 import { translate } from "./i18n";
 import { optimizeLossless } from "./image_opt";
 import { sendEmail } from "./email";
@@ -75,7 +75,8 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     }
 
 
-    if (await isIpBlocked(env, clientIp)) {
+    // /api/health reste accessible même depuis une IP bloquée (supervision / déblocage)
+    if (path !== '/api/health' && await isIpBlocked(env, clientIp)) {
         await logDiscord(env, "IP blocked request", { ip: clientIp, path, requestId });
         return apiError(ErrorCode.ACCESS_BLOCKED, 403, translate('access.blocked'));
     }
@@ -145,7 +146,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             return apiError(code, status, perr.error);
         }
         let { buf, contentType, filename } = parsed;
-        if (!contentType || !/(image\/png|image\/webp|image\/avif|image\/jpeg)/.test(contentType)) {
+        if (!contentType || !/^image\/(png|webp|avif|jpeg)$/.test(contentType)) {
             await bumpIpScore(env, clientIp, 3);
             return apiError(ErrorCode.UPLOAD_UNSUPPORTED_TYPE, 415, translate('upload.unsupported_full'));
         }
@@ -177,6 +178,8 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             if (final_bytes === original_bytes_initial) final_bytes = (buf as ArrayBuffer).byteLength;
             if (saved <= 0) saved = 0;
             const saved_pct = original_bytes > 0 ? +((saved / original_bytes) * 100).toFixed(2) : 0;
+            // Taille réellement stockée dans R2 (après optimisation éventuelle)
+            sizeBytes = (buf as ArrayBuffer).byteLength;
             await putImage(env, key, buf!, contentType);
             const quotaValues = quotas.ok ? quotas.q : null;
             const autoDeleteSec = quotaValues?.autoDeleteSec ?? null;
@@ -185,11 +188,11 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             if (originalName) {
                 originalName = originalName.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 180);
             }
-            await createImage(env, { id: imageId, owner_id: user_id, key, ext: extension, content_type: contentType, size: sizeBytes, ip: clientIp, auto_delete_at: auto_delete_at ?? undefined, original_name: originalName });
-            await bumpUserStatsOnUpload(env, user_id, sizeBytes);
             const via_api = hasBearer && !req.headers.get('referer');
+            await createImage(env, { id: imageId, owner_id: user_id, key, ext: extension, content_type: contentType, size: sizeBytes, ip: clientIp, auto_delete_at: auto_delete_at ?? undefined, original_name: originalName, via_api });
+            await bumpUserStatsOnUpload(env, user_id, sizeBytes);
             await createAudit(env, { type: "upload", user_id, ip: clientIp, meta: auditMeta({ id: imageId, key, role, original_bytes, final_bytes, saved_bytes: saved, saved_pct, optimization: optNote, via_api }) });
-            await logDiscordUser("Image uploaded", user_id, { id: imageId, role, ip: clientIp, original_bytes, final_bytes, saved_bytes: saved, saved_pct, size: sizeBytes, requestId, optimized_saved: saved, via_api });
+            await logDiscordUser("Image uploaded", user_id, { id: imageId, role, ip: clientIp, original_bytes, final_bytes, saved_bytes: saved, saved_pct, size: sizeBytes, requestId, via_api });
             return json({ ok: true, id: imageId, url: `/i/${imageId}${extension}`, original_bytes, final_bytes, saved_bytes: saved, saved_pct, via_api });
         } catch (e) {
             await bumpIpScore(env, clientIp, 5);
@@ -282,7 +285,6 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         await deleteImageRecord(env, imageId);
         await bumpUserStatsOnDelete(env, img.owner_id as string | undefined, (img as any).size as number | undefined);
         await createAudit(env, { type: "delete_image", user_id: session.user_id, ip: clientIp, meta: auditMeta({ id: imageId }) });
-        await createAudit(env, { type: "delete_image", user_id: session.user_id, ip: clientIp, meta: auditMeta({ id: imageId }) });
         await logDiscordUser("Image deleted", session.user_id, { id: imageId, by: session.user_id, requestId });
         return json({ ok: true });
     }
@@ -317,7 +319,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             const n = Number(val);
             if (!Number.isFinite(n)) return null;
             if (n === -1) return null;
-            return n >= 0 ? n : null;
+            return (n >= 0 && Number.isInteger(n)) ? n : null;
         }
         const daily = norm(body.daily);
         const cooldown_sec = norm(body.cooldown_sec);
@@ -349,7 +351,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         if (!role) return apiError(ErrorCode.INVALID_DATA, 400, translate('invalid.form'));
         if (['anon', 'admin', 'user'].includes(role)) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
         try {
-            await env.DB.prepare('UPDATE users SET role="user" WHERE role=?').bind(role).run();
+            await env.DB.prepare('UPDATE users SET role=? WHERE role=?').bind('user', role).run();
             await env.DB.prepare('DELETE FROM role_policies WHERE role=?').bind(role).run();
             clearRolePolicyCache(role);
             await createAudit(env, { type: 'admin_role_policy_delete', user_id: s.user_id, ip: clientIp, meta: auditMeta({ role, reassigned_to: 'user' }) });
@@ -382,13 +384,13 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const topIpsPromise = env.DB.prepare("SELECT ip, score FROM ip_blocks ORDER BY score DESC LIMIT 5").all<{ ip: string; score: number }>();
         const [agg, topIps] = await Promise.all([aggPromise, topIpsPromise]);
         const recentImages = await env.DB.prepare(`
-        SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.last_access_at, i.views, i.original_name,
+        SELECT i.id, i.ext, i.size, i.owner_id, i.created_at, i.last_access_at, i.views, i.via_api, i.original_name,
                u.username as owner_username, u.role as owner_role
                 FROM images i
                 LEFT JOIN users u ON u.id = i.owner_id
                 ORDER BY i.created_at DESC
                 LIMIT 10
-        `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>();
+        `).all<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; via_api: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>();
 
         const usersTotal = agg?.users_total || 0;
         const usersDisabled = agg?.users_disabled || 0;
@@ -399,26 +401,13 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const viewsTotal = agg?.views_total || 0;
         const audit24h = agg?.audit_24h || 0;
         const ipBlockCount = agg?.ip_block_count || 0;
-        const recentList = (recentImages.results || []) as Array<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>;
-        let viaMap: Record<string, boolean> = {};
-        if (recentList.length) {
-            const idsCond = recentList.map(r => r.id).filter(Boolean);
-            try {
-                for (const rid of idsCond) {
-                    const pattern = `%"id":"${rid}"%`;
-                    const row = await env.DB.prepare("SELECT meta FROM audit_logs WHERE type='upload' AND meta LIKE ? ORDER BY id DESC LIMIT 1").bind(pattern).first<{ meta: string }>();
-                    if (row?.meta) {
-                        try { const m = JSON.parse(row.meta); if (m && typeof m.via_api === 'boolean') viaMap[rid] = !!m.via_api; } catch { }
-                    }
-                }
-            } catch { /* ignore */ }
-        }
+        const recentList = (recentImages.results || []) as Array<{ id: string; ext: string; size: number; owner_id: string | null; created_at: number; last_access_at: number | null; views: number; via_api: number; original_name: string | null; owner_username: string | null; owner_role: string | null }>;
         const payloadObj = {
             users: { total: usersTotal, disabled: usersDisabled, active: usersTotal - usersDisabled },
             images: { total: imagesTotal, last24h: images24h, last1h: images1h, bytes_total: bytesTotal, views_total: viewsTotal },
             audit: { last24h: audit24h },
             ip_blocks: { total: ipBlockCount, top: topIps.results || [] },
-            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, owner_role: r.owner_role, created_at: r.created_at, last_access_at: (r as any).last_access_at ?? null, views: (r as any).views ?? 0, original_name: (r as any).original_name || null, via_api: viaMap[r.id] || false })),
+            recent_images: recentList.map(r => ({ id: r.id, url: `/i/${r.id}${r.ext}`, ext: r.ext, size: r.size, owner_id: r.owner_id, owner_username: r.owner_username, owner_role: r.owner_role, created_at: r.created_at, last_access_at: (r as any).last_access_at ?? null, views: (r as any).views ?? 0, original_name: (r as any).original_name || null, via_api: !!(r as any).via_api })),
             generated_at: now
         };
         const body = JSON.stringify(payloadObj);
@@ -438,9 +427,8 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (req.method === 'GET' && path === '/api/admin/scheduled') {
         const s = await requireAdminGlobal(env, req); if (!s) return apiError(ErrorCode.FORBIDDEN, 403, translate('auth.forbidden'));
         const tasks = [
-            { name: 'cleanup', cron: '0 * * * *', desc: 'Nettoyage périodique (sessions / tokens / auto delete images)', intervalMin: 60 },
-            { name: 'decay_ip_scores', cron: '*/15 * * * *', desc: 'Décroissance scores IP', intervalMin: 15 },
-            { name: 'purge_old_logs', cron: '30 3 * * *', desc: 'Purge des logs anciens', intervalMin: 1440 },
+            { name: 'cleanup', cron: '0 * * * *', desc: 'Nettoyage horaire (images auto-supprimées, captchas, sessions/tokens expirés, décroissance IP)', intervalMin: 60 },
+            { name: 'auto_backup', cron: '0 * * * *', desc: 'Sauvegarde base si >4 jours depuis la dernière', intervalMin: 60 },
         ];
         const nowMs = Date.now();
         function nextRun(ts: number, intervalMin: number): number { return ts + intervalMin * 60000; }
@@ -490,7 +478,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const sortCol = sortMap[sortKey] || sortMap.created_at;
         const sortDir = (u.searchParams.get("dir") || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
         const rows = await env.DB.prepare(
-            `SELECT i.id, i.owner_id, u.username as owner_username, u.role as owner_role, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.views, i.auto_delete_at, i.original_name
+            `SELECT i.id, i.owner_id, u.username as owner_username, u.role as owner_role, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.views, i.via_api, i.auto_delete_at, i.original_name
                          FROM images i
                          LEFT JOIN users u ON u.id = i.owner_id
                          WHERE 1=1
@@ -516,16 +504,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
             ownerUsername ? `%${ownerUsername}%` : null, ownerUsername ? `%${ownerUsername}%` : null
         ).first<{ c: number }>())?.c || 0;
         const list = rows.results || [];
-        const viaMap: Record<string, boolean> = {};
-        for (const r of list) {
-            try {
-                const rid = String((r as any).id);
-                const pattern = `%"id":"${rid}"%`;
-                const row = await env.DB.prepare("SELECT meta FROM audit_logs WHERE type='upload' AND meta LIKE ? ORDER BY id DESC LIMIT 1").bind(pattern).first<{ meta: string }>();
-                if (row?.meta) { try { const m = JSON.parse(row.meta); if (typeof m.via_api === 'boolean') viaMap[rid] = !!m.via_api; } catch { } }
-            } catch { }
-        }
-        const out = list.map(r => { const rid = String((r as any).id); return { ...r, via_api: viaMap[rid] || false }; });
+        const out = list.map(r => ({ ...r, via_api: !!(r as any).via_api }));
         return json({ images: out, total, page, limit, pages: Math.ceil(total / limit) });
     }
 
@@ -536,10 +515,8 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const id = urlObj.searchParams.get('id');
         if (!id) return apiError(ErrorCode.INVALID_DATA, 400, translate('admin.missing_id'));
         try {
-            const pattern = `%"id":"${id}"%`;
-            const row = await env.DB.prepare("SELECT meta FROM audit_logs WHERE type='upload' AND meta LIKE ? ORDER BY id DESC LIMIT 1").bind(pattern).first<{ meta: string }>();
-            if (!row?.meta) return json({ ok: true, via_api: false });
-            try { const m = JSON.parse(row.meta); return json({ ok: true, via_api: !!m.via_api }); } catch { return json({ ok: true, via_api: false }); }
+            const row = await env.DB.prepare("SELECT via_api FROM images WHERE id=?").bind(id).first<{ via_api: number }>();
+            return json({ ok: true, via_api: !!(row?.via_api) });
         } catch { return json({ ok: true, via_api: false }); }
     }
 
@@ -713,7 +690,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);
         const r = await recordRun('decay_ip_scores', async () => {
             const before = await env.DB.prepare('SELECT SUM(score) as s FROM ip_blocks').first<{ s: number }>();
-            await env.DB.prepare("UPDATE ip_blocks SET score = MAX(score - 10,0), updated_at=strftime('%s','now')").run();
+            await decayIpScores(env);
             const after = await env.DB.prepare('SELECT SUM(score) as s FROM ip_blocks').first<{ s: number }>();
             return { meta: { before: before?.s || 0, after: after?.s || 0 } };
         });
@@ -815,10 +792,17 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const table = u.searchParams.get('table');
         const limit = Math.min(parseInt(u.searchParams.get('limit') || '50', 10) || 50, 200);
         if (!table || /[^A-Za-z0-9_]/.test(table)) return apiError(ErrorCode.INVALID_DATA, 400, translate('table.invalid'));
+        // Colonnes sensibles jamais exposées via cet endpoint de debug
+        const SENSITIVE_COLS = new Set(['password_hash', 'token_hash', 'token_plain', 'answer_hash']);
         const sql = `SELECT * FROM ${table} LIMIT ?`;
         try {
             const rows = await env.DB.prepare(sql).bind(limit).all();
-            return json({ rows: rows.results || [] });
+            const filtered = (rows.results || []).map((row: any) => {
+                const out: Record<string, unknown> = {};
+                for (const [k, v] of Object.entries(row)) if (!SENSITIVE_COLS.has(k)) out[k] = v;
+                return out;
+            });
+            return json({ rows: filtered });
         } catch (e: any) {
             return apiError(ErrorCode.INVALID_DATA, 400, translate('query.failed'), { detail: String(e) });
         }
@@ -913,8 +897,23 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (req.method === "POST" && path === "/api/me/email/request") {
         const session = await requireSessionUser();
         if (!session) return apiError(ErrorCode.AUTH_REQUIRED, 401, translate('auth.unauthorized'));
-        const { new_email }: any = await req.json();
+        const { new_email, password }: any = await req.json();
         if (!validateEmail(new_email)) return apiError(ErrorCode.INVALID_DATA, 400, translate('email.invalid'));
+        // Vérification du mot de passe courant (empêche le détournement de compte via session volée)
+        if (!password || typeof password !== 'string') return apiError(ErrorCode.PASSWORD_INVALID_CURRENT, 401, translate('password.current_invalid'));
+        const pwdRow = await env.DB.prepare("SELECT password_hash FROM users WHERE id=?").bind(session.user_id).first<{ password_hash: string }>();
+        if (!pwdRow) return apiError(ErrorCode.INVALID_DATA, 400, translate('common.not_found'));
+        {
+            const raw = Uint8Array.from(atob(pwdRow.password_hash), c => c.charCodeAt(0));
+            const salt = raw.slice(0, 16); const hash = raw.slice(16);
+            const enc = new TextEncoder();
+            const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
+            const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" }, key, 256);
+            const d = new Uint8Array(derived);
+            let equal = 0;
+            for (let i = 0; i < d.length; i++) equal |= d[i] ^ hash[i];
+            if (equal !== 0) return apiError(ErrorCode.PASSWORD_INVALID_CURRENT, 401, translate('password.current_invalid'));
+        }
         const token = randomId(48);
         const exp = Math.floor(Date.now() / 1000) + 15 * 60;
         await setUserEmailRequest(env, session.user_id, new_email, token, exp);

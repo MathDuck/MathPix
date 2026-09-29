@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS images (
   ip TEXT NOT NULL,
   last_access_at INTEGER, -- mis à jour à chaque lecture /i/:id.ext
   views INTEGER NOT NULL DEFAULT 0, -- compteur de lectures réelles (hors no_track)
+  via_api INTEGER NOT NULL DEFAULT 0, -- upload via token API (évite le N+1 sur audit_logs)
   auto_delete_at INTEGER,
   FOREIGN KEY (owner_id) REFERENCES users(id)
 );

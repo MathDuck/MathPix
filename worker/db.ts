@@ -40,11 +40,11 @@ export async function createUser(env: Env, o: { id: string; email: string; usern
 
 export async function createImage(env: Env, o: {
     id: string; owner_id?: string; key: string; ext: string; content_type: string;
-    size: number; ip: string; auto_delete_at?: number; original_name?: string | null;
+    size: number; ip: string; auto_delete_at?: number; original_name?: string | null; via_api?: boolean;
 }) {
     return await env.DB.prepare(
-        "INSERT INTO images (id,owner_id,key,ext,content_type,original_name,size,created_at,ip,auto_delete_at) VALUES (?,?,?,?,?,?,?,strftime('%s','now'),?,?)"
-    ).bind(o.id, o.owner_id ?? null, o.key, o.ext, o.content_type, o.original_name ?? null, o.size, o.ip, o.auto_delete_at ?? null).run();
+        "INSERT INTO images (id,owner_id,key,ext,content_type,original_name,size,created_at,ip,auto_delete_at,via_api) VALUES (?,?,?,?,?,?,?,strftime('%s','now'),?,?,?)"
+    ).bind(o.id, o.owner_id ?? null, o.key, o.ext, o.content_type, o.original_name ?? null, o.size, o.ip, o.auto_delete_at ?? null, o.via_api ? 1 : 0).run();
 }
 
 // --- users_stats helpers ---
@@ -81,15 +81,15 @@ export async function countUploadsToday(env: Env, ref: { user_id?: string; ip: s
     return env.DB.prepare(
         `SELECT COUNT(*) as c FROM images
      WHERE date(created_at,'unixepoch','localtime') = date('now','localtime')
-     AND ( (owner_id IS NOT NULL AND owner_id = COALESCE(?, owner_id)) OR (owner_id IS NULL AND ip = ?) )`
-    ).bind(ref.user_id ?? null, ref.ip).first<{ c: number }>();
+     AND ( (? IS NOT NULL AND owner_id = ?) OR (? IS NULL AND owner_id IS NULL AND ip = ?) )`
+    ).bind(ref.user_id ?? null, ref.user_id ?? null, ref.user_id ?? null, ref.ip).first<{ c: number }>();
 }
 
 export async function lastUploadAt(env: Env, ref: { user_id?: string; ip: string }) {
     return env.DB.prepare(
         `SELECT MAX(created_at) as ts FROM images
-     WHERE ( (owner_id IS NOT NULL AND owner_id = COALESCE(?, owner_id)) OR (owner_id IS NULL AND ip = ?) )`
-    ).bind(ref.user_id ?? null, ref.ip).first<{ ts: number }>();
+     WHERE ( (? IS NOT NULL AND owner_id = ?) OR (? IS NULL AND owner_id IS NULL AND ip = ?) )`
+    ).bind(ref.user_id ?? null, ref.user_id ?? null, ref.user_id ?? null, ref.ip).first<{ ts: number }>();
 }
 
 export async function getImageById(env: Env, id: string) {

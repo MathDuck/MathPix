@@ -1,7 +1,7 @@
 import { Env } from "./env.d";
 import { createUser, getUserByEmail, getUserByUsername, getUserByEmailOrUsername } from "./db";
 import { sendEmail } from "./email";
-import { createSession, sessionCookie, destroySession, getSession } from "./sessions";
+import { createSession, sessionCookie, destroySession, getSession, clearCookie } from "./sessions";
 import { randomId, getClientIp, getUA, validateEmail, validatePassword, validateUsername, PBKDF2_ITERATIONS, bumpIpScore, verifyCaptcha, LOGIN_WINDOW_SEC, LOGIN_FAIL_THRESHOLD, responseHelpers } from "./utils";
 import { logDiscord } from "./discord";
 import { createAudit } from "./db";
@@ -177,7 +177,7 @@ export async function handleLogout(req: Request, env: Env) {
     }
     return new Response(null, {
         status: 204,
-        headers: { "set-cookie": "sessionId=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }
+        headers: { "set-cookie": clearCookie() }
     });
 }
 

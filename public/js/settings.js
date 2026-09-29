@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             toast('Avatar mis à jour', { type: 'success' });
             location.reload();
         } else {
-            if ((data).error === 'Cooldown avatar' && typeof (data).wait === 'number') {
+            if ((data).code === 'avatar_cooldown' && typeof (data).wait === 'number') {
                 handleAvatarCooldown((data).wait);
             } else {
                 toast((data).error || "Erreur avatar", { type: 'error' });
@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             toast('Avatar supprimé', { type: 'info' });
             location.reload();
         } else {
-            if ((data).error === 'Cooldown avatar' && typeof (data).wait === 'number') {
+            if ((data).code === 'avatar_cooldown' && typeof (data).wait === 'number') {
                 if (window.__toastCountdown) window.__toastCountdown((data).wait, { message: 'Merci de patienter pendant {s}s' });
                 else toast('Cooldown avatar ' + (data).wait + 's', { type: 'error', ttl: 4000 });
             } else {

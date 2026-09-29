@@ -41,6 +41,9 @@ async function optimizePNG(input: Uint8Array): Promise<OptimizeResult | null> {
     for (let k = 0; k < 8; k++) if (sig[k] !== PNG_SIG[k]) return null;
     const originalBytes = input.length;
     const critical = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND']);
+    // Chunks non critiques à préserver impérativement (sinon altération visuelle) :
+    // tRNS = transparence palette, gAMA/sRGB/iCCP = profil couleur.
+    const preserveAncillary = new Set(['tRNS', 'gAMA', 'sRGB', 'iCCP']);
     let pos = 8;
     let ihdr: Uint8Array | null = null;
     const otherChunks: { type: string; data: Uint8Array }[] = [];
@@ -53,13 +56,13 @@ async function optimizePNG(input: Uint8Array): Promise<OptimizeResult | null> {
         if (pos + len + 4 > input.length) break; // invalid
         const data = input.subarray(pos, pos + len);
         pos += len;
-        const crc = input.subarray(pos, pos + 4); pos += 4; // we recalc
+        pos += 4; // CRC (recalculé plus bas)
         if (type === 'IHDR') ihdr = data.slice();
         if (type === 'IDAT') idatParts.push(data.slice());
         else if (critical.has(type) && type !== 'IHDR' && type !== 'IDAT') {
             otherChunks.push({ type, data: data.slice() });
-        } else if (!critical.has(type)) {
-            continue;
+        } else if (preserveAncillary.has(type)) {
+            otherChunks.push({ type, data: data.slice() });
         }
         if (type === 'IEND') break;
     }

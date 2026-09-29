@@ -61,7 +61,7 @@ function initNav() {
     });
     const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
     bind('searchBtn', () => loadUsers($('searchUser').value.trim()));
-    bind('imgSearchBtn', loadAllImages); bind('ipSetBtn', setIpScore); bind('logSearchBtn', loadLogs); bind('cleanupBtn', doCleanup);
+    bind('imgSearchBtn', loadAllImages); bind('ipSetBtn', setIpScore); bind('logSearchBtn', loadLogs);
     bind('purgeSessionsBtn', maintPurgeSessions);
     bind('purgeLogsBtn', maintPurgeLogs);
     bind('recalcStatsBtn', maintRecalcStats);
@@ -213,7 +213,7 @@ function renderDashboardTopIps(list) {
     const frag = document.createDocumentFragment();
     list.forEach(ip => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${ip.ip}</td><td>${ip.score || 0}</td><td>${fmtDate(ip.updated_at)}</td><td>${ip.owner || 'Inconnu'}</td>`;
+        tr.innerHTML = `<td>${ip.ip}</td><td>${ip.score || 0}</td>`;
         frag.appendChild(tr);
     });
     top.appendChild(frag);
@@ -224,17 +224,17 @@ async function loadUsers(searchQuery) {
     const params = new URLSearchParams(); params.set('page', usersPage); params.set('limit', usersLimit); if (searchQuery) params.set('q', searchQuery);
     const { json: data } = await fetchJson('/api/admin/users?' + params.toString());
     const tbody = $('usersBody'); tbody.innerHTML = '';
-    let rolePoliciesCache = window.__rolePoliciesCache;
-    let rolePoliciesMap = window.__rolePoliciesMap;
-    if (!rolePoliciesCache || !rolePoliciesMap) {
-        try { const rp = await fetchJson('/api/admin/role-policies'); if (rp.ok) { const arr = rp.json.policies || []; rolePoliciesCache = arr.map(p => p.role); rolePoliciesMap = {}; arr.forEach(p => { rolePoliciesMap[p.role] = (p.label && p.label.trim()) || p.role; }); window.__rolePoliciesCache = rolePoliciesCache; window.__rolePoliciesMap = rolePoliciesMap; } } catch { rolePoliciesCache = []; rolePoliciesMap = {}; }
+    let roleList = window.__roleList;
+    let roleLabelsMap = window.__roleLabelsMap;
+    if (!roleList || !roleLabelsMap) {
+        try { const rp = await fetchJson('/api/admin/role-policies'); if (rp.ok) { const arr = rp.json.policies || []; roleList = arr.map(p => p.role); roleLabelsMap = {}; arr.forEach(p => { roleLabelsMap[p.role] = (p.label && p.label.trim()) || p.role; }); window.__roleList = roleList; window.__roleLabelsMap = roleLabelsMap; } } catch { roleList = []; roleLabelsMap = {}; }
     }
     (data.users || []).forEach(userRow => {
         const tr = document.createElement('tr');
         if (userRow.id === currentUserId) tr.classList.add('self-user');
-        const roles = rolePoliciesCache || [];
-        const optionsHtml = roles.map(r => `<div class="role-option${userRow.role === r ? ' active' : ''}" data-value="${r}" role="option" aria-selected="${userRow.role === r}" tabindex="0"><span class="role-badge-dot"></span><span>${rolePoliciesMap[r] || r}</span></div>`).join('');
-        const roleLabel = (rolePoliciesMap && rolePoliciesMap[userRow.role]) ? rolePoliciesMap[userRow.role] : userRow.role;
+        const roles = roleList || [];
+        const optionsHtml = roles.map(r => `<div class="role-option${userRow.role === r ? ' active' : ''}" data-value="${r}" role="option" aria-selected="${userRow.role === r}" tabindex="0"><span class="role-badge-dot"></span><span>${roleLabelsMap[r] || r}</span></div>`).join('');
+        const roleLabel = (roleLabelsMap && roleLabelsMap[userRow.role]) ? roleLabelsMap[userRow.role] : userRow.role;
         tr.innerHTML = `<td>${userRow.id}</td><td>${userRow.username || '-'}</td><td>${userRow.email}</td><td>
         <div class="role-select" data-id="${userRow.id}">
             <button type="button" class="role-trigger" data-role="${userRow.role}" aria-haspopup="listbox" aria-expanded="false" ${userRow.id === currentUserId ? 'disabled aria-disabled="true" data-self="1"' : ''}><span class="role-badge-dot"></span><span class="role-label">${roleLabel}${userRow.id === currentUserId ? ' (vous)' : ''}</span><span class="chevron">▾</span></button>
