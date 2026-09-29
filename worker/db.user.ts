@@ -31,8 +31,8 @@ export async function userInfo(env: Env, user_id: string) {
 }
 
 export async function userStats(env: Env, user_id: string) {
-    const statsRow = await env.DB.prepare("SELECT images_total, images_today, last_upload_at, bytes_total FROM users_stats WHERE user_id=?")
-        .bind(user_id).first<{ images_total: number; images_today: number; last_upload_at: number; bytes_total: number }>();
+    const statsRow = await env.DB.prepare("SELECT images_total, images_today, last_upload_at, bytes_total, api_calls FROM users_stats WHERE user_id=?")
+        .bind(user_id).first<{ images_total: number; images_today: number; last_upload_at: number; bytes_total: number; api_calls: number }>();
     const recent = await env.DB.prepare(
         "SELECT id,ext,created_at FROM images WHERE owner_id=? ORDER BY created_at DESC LIMIT 12"
     ).bind(user_id).all();
@@ -44,10 +44,9 @@ export async function userStats(env: Env, user_id: string) {
                 (SELECT SUM(CASE WHEN type='upload' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS uploads,
                 (SELECT SUM(CASE WHEN type='delete_image' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS deletions,
                 (SELECT SUM(CASE WHEN type='User avatar updated' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS avatar_changes,
-                (SELECT SUM(CASE WHEN type='User password changed' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS password_changes,
-                (SELECT SUM(CASE WHEN type='API token refreshed' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS api_token_refreshes
-        `).bind(user_id, user_id, user_id, user_id, user_id, user_id).first<{
-            first_upload_at: number | null; uploads: number; deletions: number; avatar_changes: number; password_changes: number; api_token_refreshes: number;
+                (SELECT SUM(CASE WHEN type IN ('User password changed','password_reset_success') THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS password_changes
+        `).bind(user_id, user_id, user_id, user_id, user_id).first<{
+            first_upload_at: number | null; uploads: number; deletions: number; avatar_changes: number; password_changes: number;
         }>();
         return {
             total: statsRow.images_total,
@@ -61,7 +60,7 @@ export async function userStats(env: Env, user_id: string) {
                 deletions: agg.deletions || 0,
                 avatar_changes: agg.avatar_changes || 0,
                 password_changes: agg.password_changes || 0,
-                api_token_refreshes: agg.api_token_refreshes || 0
+                api_calls: statsRow.api_calls || 0
             } : null
         };
     }
@@ -75,11 +74,10 @@ export async function userStats(env: Env, user_id: string) {
             (SELECT SUM(CASE WHEN type='upload' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS uploads,
             (SELECT SUM(CASE WHEN type='delete_image' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS deletions,
             (SELECT SUM(CASE WHEN type='User avatar updated' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS avatar_changes,
-            (SELECT SUM(CASE WHEN type='User password changed' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS password_changes,
-            (SELECT SUM(CASE WHEN type='API token refreshed' THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS api_token_refreshes
-    `).bind(user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id).first<{
+            (SELECT SUM(CASE WHEN type IN ('User password changed','password_reset_success') THEN 1 ELSE 0 END) FROM audit_logs WHERE user_id=?) AS password_changes
+    `).bind(user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id).first<{
         total: number; today: number; first_upload_at: number | null; last_upload_at: number | null; bytes_total: number;
-        uploads: number; deletions: number; avatar_changes: number; password_changes: number; api_token_refreshes: number;
+        uploads: number; deletions: number; avatar_changes: number; password_changes: number;
     }>();
     return {
         total: fallback?.total || 0,
@@ -93,7 +91,7 @@ export async function userStats(env: Env, user_id: string) {
             deletions: fallback.deletions || 0,
             avatar_changes: fallback.avatar_changes || 0,
             password_changes: fallback.password_changes || 0,
-            api_token_refreshes: fallback.api_token_refreshes || 0
+            api_calls: 0
         } : null
     };
 }

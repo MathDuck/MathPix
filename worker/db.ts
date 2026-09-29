@@ -77,6 +77,18 @@ export async function bumpUserStatsOnDelete(env: Env, user_id: string | undefine
     `).bind(bytes ?? null, bytes ?? null, bytes ?? null, user_id).run();
 }
 
+// Incrémente le compteur d'appels API (requête authentifiée par token Bearer)
+export async function bumpUserApiCalls(env: Env, user_id: string) {
+    if (!user_id) return;
+    await env.DB.prepare(`
+        INSERT INTO users_stats (user_id, images_total, images_today, last_upload_at, bytes_total, api_calls, last_updated_at)
+        VALUES (?, 0, 0, NULL, 0, 1, strftime('%s','now'))
+        ON CONFLICT(user_id) DO UPDATE SET
+            api_calls = users_stats.api_calls + 1,
+            last_updated_at = strftime('%s','now')
+    `).bind(user_id).run();
+}
+
 export async function countUploadsToday(env: Env, ref: { user_id?: string; ip: string }) {
     return env.DB.prepare(
         `SELECT COUNT(*) as c FROM images

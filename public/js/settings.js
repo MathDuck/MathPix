@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 parts.push(`<div class="stat-box"><div class="stat-label">📦 Espace images</div><div class="stat-value">${formatBytes(stats.images_bytes_total || stats.bytes_total || 0)}</div></div>`);
                 parts.push(`<div class="stat-box"><div class="stat-label">👤 Avatar</div><div class="stat-value">${formatBytes(stats.avatar_bytes || 0)}</div></div>`);
                 parts.push(`<div class="stat-box"><div class="stat-label">Σ Total</div><div class="stat-value">${formatBytes(stats.bytes_total || ((stats.images_bytes_total || 0) + (stats.avatar_bytes || 0)))}</div></div>`);
-                parts.push(`<div class="stat-box"><div class="stat-label">🔗 Appels API</div><div class="stat-value">${stats.audit?.api_token_refreshes ?? 0}</div></div>`);
+                parts.push(`<div class="stat-box"><div class="stat-label">🔗 Appels API</div><div class="stat-value">${stats.audit?.api_calls ?? 0}</div></div>`);
                 parts.push(`<div class="stat-box"><div class="stat-label">🖼 Changements de photo</div><div class="stat-value">${stats.audit?.avatar_changes ?? 0}</div></div>`);
                 parts.push(`<div class="stat-box"><div class="stat-label">🔐 Changements de mot de passe</div><div class="stat-value">${stats.audit?.password_changes ?? 0}</div></div>`);
                 statsGrid.innerHTML = parts.join('');

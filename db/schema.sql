@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS users_stats (
   images_today INTEGER NOT NULL DEFAULT 0,
   last_upload_at INTEGER,
   bytes_total INTEGER NOT NULL DEFAULT 0,
+  api_calls INTEGER NOT NULL DEFAULT 0, -- nombre d'appels API authentifiés par token
   last_updated_at INTEGER NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

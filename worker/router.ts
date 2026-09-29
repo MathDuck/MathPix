@@ -644,13 +644,21 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (req.method === 'POST' && path === '/api/admin/maint/recalc-stats') {
         const admin = await requireAdmin(); if (!admin) return json({ error: translate('auth.unauthorized') }, 403);
         const r = await recordRun('recalc_stats', async () => {
-            await env.DB.prepare("DELETE FROM users_stats").run();
+            // Reconstruit les compteurs images/octets SANS perdre api_calls (compteur cumulatif).
             const agg2 = await env.DB.prepare(`SELECT owner_id as user_id, COUNT(*) as images_total, COALESCE(SUM(size),0) as bytes_total FROM images WHERE owner_id IS NOT NULL GROUP BY owner_id`).all<{ user_id: string; images_total: number; bytes_total: number }>();
             const now3 = Math.floor(Date.now() / 1000);
             for (const rr of agg2.results || []) {
-                await env.DB.prepare("INSERT INTO users_stats (user_id, images_total, images_today, last_upload_at, bytes_total, last_updated_at) VALUES (?,?,?,?,?,?)")
+                await env.DB.prepare(`INSERT INTO users_stats (user_id, images_total, images_today, last_upload_at, bytes_total, api_calls, last_updated_at)
+                    VALUES (?,?,?,?,?,0,?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        images_total=excluded.images_total,
+                        bytes_total=excluded.bytes_total,
+                        last_updated_at=excluded.last_updated_at`)
                     .bind(rr.user_id, rr.images_total, 0, null, rr.bytes_total, now3).run();
             }
+            // Utilisateurs sans images : compteurs images remis à zéro (api_calls conservé)
+            await env.DB.prepare(`UPDATE users_stats SET images_total=0, bytes_total=0, last_updated_at=?
+                WHERE user_id NOT IN (SELECT DISTINCT owner_id FROM images WHERE owner_id IS NOT NULL)`).bind(now3).run();
             return { items: (agg2.results || []).length };
         });
         if (r.ok) await maintAudit('recalc_stats', { run_id: r.id, items: (r as any).items ?? 0 }, admin.user_id);
