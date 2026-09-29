@@ -480,6 +480,15 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
         const limit = Math.min(parseInt(u.searchParams.get("limit") || "50", 10) || 50, 200);
         const page = Math.max(parseInt(u.searchParams.get("page") || "1", 10) || 1, 1);
         const offset = (page - 1) * limit;
+        // Tri (liste blanche stricte pour éviter toute injection SQL)
+        const sortMap: Record<string, string> = {
+            created_at: "i.created_at",
+            views: "i.views",
+            owner: "COALESCE(u.username, '')"
+        };
+        const sortKey = (u.searchParams.get("sort") || "created_at").toLowerCase();
+        const sortCol = sortMap[sortKey] || sortMap.created_at;
+        const sortDir = (u.searchParams.get("dir") || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
         const rows = await env.DB.prepare(
             `SELECT i.id, i.owner_id, u.username as owner_username, u.role as owner_role, i.ext, i.content_type, i.size, i.created_at, i.last_access_at, i.views, i.auto_delete_at, i.original_name
                          FROM images i
@@ -488,7 +497,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
                              AND (? IS NULL OR i.owner_id = ?)
                              AND (? IS NULL OR i.id LIKE ?)
                              AND (? IS NULL OR (u.username IS NOT NULL AND u.username LIKE ?))
-                         ORDER BY i.created_at DESC
+                         ORDER BY ${sortCol} ${sortDir}, i.created_at DESC
                          LIMIT ? OFFSET ?`
         ).bind(
             owner ?? null, owner ?? null,

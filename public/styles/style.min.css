@@ -2497,6 +2497,23 @@ button.forgot-link:focus-visible {
 .lightbox-next {
   right: 0.5rem;
 }
+th.th-sort {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+th.th-sort:hover {
+  color: var(--accent-color);
+}
+th.th-sort.sort-active {
+  color: var(--accent-color);
+}
+th.th-sort .sort-ind {
+  display: inline-block;
+  margin-left: 0.3rem;
+  font-size: 0.7em;
+  opacity: 0.85;
+}
 /* === Injected incremental styles (sync with style.css additions) === */
 .btn-group-compact {
   display: inline-flex;

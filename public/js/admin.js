@@ -19,6 +19,7 @@ async function mustAdmin() {
 // Limites fixes (20) + logs
 let usersPage = 1, usersLimit = 20; let imagesPage = 1, imagesLimit = 20; let logsPage = 1, logsLimit = 20; let ipPage = 1, ipLimit = 20; let currentUserId = null;
 let __imagesList = []; // liste courante de l'onglet Images (pour la navigation lightbox)
+let imagesSort = 'created_at', imagesDir = 'desc'; // tri de l'onglet Images
 const loadedSections = new Set();
 const loaders = { dashboard: loadDashboard, users: loadUsers, images: loadAllImages, ip: loadIPs, logs: loadLogs, maintenance: () => { loadMaintHistory(); }, roles: loadRolePolicies };
 
@@ -40,7 +41,7 @@ const confirmAction = (msg) => window.confirm(msg);
 const DASH_CACHE_TTL = 10000;
 let __dashCache = { data: null, ts: 0 };
 
-document.addEventListener('DOMContentLoaded', async () => { const sess = await mustAdmin(); currentUserId = sess.user_id || null; initNav(); await primeRolePolicies(); await loadDashboard(); });
+document.addEventListener('DOMContentLoaded', async () => { const sess = await mustAdmin(); currentUserId = sess.user_id || null; initNav(); initImagesSort(); await primeRolePolicies(); await loadDashboard(); });
 
 function initNav() {
     const nav = document.getElementById('adminNav');
@@ -273,6 +274,7 @@ async function loadAllImages() {
     const usernameFilter = ($('imgSearchUsername') || { value: '' }).value.trim();
     const params = new URLSearchParams();
     params.set('page', imagesPage); params.set('limit', imagesLimit);
+    params.set('sort', imagesSort); params.set('dir', imagesDir);
     if (imageIdFilter) params.set('id', imageIdFilter);
     if (ownerFilter) params.set('owner', ownerFilter);
     if (usernameFilter) params.set('username', usernameFilter);
@@ -327,6 +329,40 @@ async function loadAllImages() {
         openLightbox({ id: imageId, url: button.getAttribute('data-url'), ext: button.getAttribute('data-ext'), size: parseInt(button.getAttribute('data-size') || '0', 10), views, original_name: button.getAttribute('data-original-name') || undefined, last_access_at, owner_id, created_at, owner_role }, navIndex >= 0 ? navIndex : null);
     }));
     enrichOptimBadges(ids);
+}
+
+// --- Tri de l'onglet Images ---
+function initImagesSort() {
+    const headers = document.querySelectorAll('#section-images th.th-sort');
+    headers.forEach(th => {
+        const apply = () => {
+            const key = th.getAttribute('data-sort');
+            if (!key) return;
+            if (imagesSort === key) {
+                imagesDir = imagesDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                imagesSort = key;
+                imagesDir = key === 'owner' ? 'asc' : 'desc';
+            }
+            imagesPage = 1;
+            updateImagesSortIndicators();
+            loadAllImages();
+        };
+        th.addEventListener('click', apply);
+        th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apply(); } });
+    });
+    updateImagesSortIndicators();
+}
+
+function updateImagesSortIndicators() {
+    document.querySelectorAll('#section-images th.th-sort').forEach(th => {
+        const key = th.getAttribute('data-sort');
+        const ind = th.querySelector('.sort-ind');
+        const active = key === imagesSort;
+        th.classList.toggle('sort-active', active);
+        th.setAttribute('aria-sort', active ? (imagesDir === 'asc' ? 'ascending' : 'descending') : 'none');
+        if (ind) ind.textContent = active ? (imagesDir === 'asc' ? '▲' : '▼') : '';
+    });
 }
 
 // --- IP Blocks ---
